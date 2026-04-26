@@ -813,6 +813,23 @@ function previewScore() {
       usdInput.className = 'input-ok';
     }
   }
+
+  // Auto-fill Collectrics notes if found in pasted text
+  const colTa = document.getElementById('colNotesTextarea');
+  if (!colTa.value.trim()) {
+    const colLines = [];
+    const dpM  = text.match(/demand\s*pressure[:\s]+([^\n.]+)/i);
+    const ssM  = text.match(/supply\s*saturation(?:\s*shift)?[:\s]+([^\n.]+)/i);
+    const ptM  = text.match(/price\s*trend[:\s]+([^\n.]+)/i);
+    const evM  = text.match(/set\s*ev[:\s]+([^\n.]+)/i);
+    const ssShift = text.match(/supply\s*saturation\s*shift\s*[>≥]\s*([\d.]+)/i);
+    if (dpM)      colLines.push('Demand Pressure: ' + dpM[1].trim().substring(0,60));
+    if (ssM)      colLines.push('Supply Saturation: ' + ssM[1].trim().substring(0,60));
+    if (ssShift)  colLines.push('⚠️ Supply Saturation Shift > ' + ssShift[1]);
+    if (ptM)      colLines.push('Price Trend: ' + ptM[1].trim().substring(0,60));
+    if (evM)      colLines.push('Set EV: ' + evM[1].trim().substring(0,60));
+    if (colLines.length) colTa.value = colLines.join(' · ');
+  }
   const preview = document.getElementById('modal-preview');
   const err = document.getElementById('modal-err');
   const saveBtn = document.getElementById('saveScoreBtn');
