@@ -493,24 +493,67 @@ function showCartaLinks(q, enc) {
 
   const prompt = `Analise a carta Pokémon TCG: "${q}"
 
-IMPORTANTE: Antes de atribuir qualquer score, pesquise na web informações atualizadas sobre esta carta, especialmente:
-- Uso competitivo real: busque no Limitless TCG (limitlesstcg.com) e PokeBeach se a carta aparece em decklists de torneios. Não assuma que uma carta é não-competitiva apenas pela raridade ou tipo — basicões como Budew, Frillish, Radiant Charizard, etc. são frequentemente peças-chave em top decks.
-- Tendência de preço recente: busque no TCGPlayer, Sports Card Investor ou PriceCharting os dados dos últimos 30 dias.
-- Risco de reprint: verifique PokeBeach e Pokemon.com por anúncios recentes.
+PASSO 1 — PESQUISA OBRIGATÓRIA (antes de qualquer score):
+- Competitividade: busque no Limitless TCG (limitlesstcg.com) se a carta aparece em decklists. Não assuma que basicões/suportes são não-competitivos.
+- Preço: busque no TCGPlayer ou Sports Card Investor os dados dos últimos 30 dias.
+- Reprint: verifique PokeBeach e Pokemon.com por anúncios recentes.
 
-Com base nessa pesquisa, me dê:
-1. Score de investimento (0-10) para cada fator abaixo — justifique cada score com dados reais:
-   - Competitividade: uso em torneios (Limitless/RK9), presença em top decks, quão substituível é
-   - Proteção Reprint (0=quase certo reimprimir, 10=impossível reimprimir): histórico de reprint, set de origem, exclusividade, probabilidade nos próximos 6 meses
-   - Raridade: tier de raridade (IR, SIR, MHR, etc.), número acima do total do set, tiragem estimada
-   - Demanda: demanda colecionável + competitiva combinadas, apelo do Pokémon, histórico de demanda
-   - Tendência de Preço: variação nos últimos 30 dias, direção do mercado
+PASSO 2 — SCORES (use os critérios objetivos abaixo, sem subjetividade):
 
-2. Recomendação final: COMPRAR / AGUARDAR / EVITAR
-3. Risco de reprint detalhado: probabilidade, histórico e sinais de mercado
-4. Perspectiva de preço nos próximos 3-6 meses
+A) COMPETITIVIDADE (peso 15%)
+10: Peça insubstituível em deck Tier 1 do meta atual
+7-9: Usada em decks Tier 1/2, mas tem alternativas
+4-6: Usada em decks Tier 3 ou formatos alternativos
+1-3: Sem uso competitivo relevante
 
-Use tabela markdown para os scores. Seja objetivo e baseado em dados — não em suposições.`;
+B) PROTEÇÃO REPRINT (peso 20%) — maior = menos chance de reimprimir
+10: Promo exclusiva descontinuada / evento único irrepetível
+8-9: Promo de produto premium fora de circulação, sem histórico de reprint
+6-7: Set especial recente, IRs raramente reimpressas individualmente
+4-5: Set regular ativo, reprint possível em 6-12 meses
+1-3: Já foi reimpresso antes / carta popular em set com histórico de reprint
+
+C) RARIDADE (peso 20%)
+10: MHR / Mega Hyper Rare com pop PSA < 50
+8-9: SIR / Special Illustration Rare ou IR de set especial tiragem limitada
+6-7: IR (Illustration Rare) de set regular
+4-5: Full Art / Ultra Rare
+1-3: Holo Rare / Rare comum
+
+D) DEMANDA (peso 25%)
+10: Pokémon ícone global (Charizard, Pikachu, Mewtwo, Eevee) + arte excepcional
+8-9: Starter popular (Piplup, Gengar, Umbreon) com forte base de fãs
+6-7: Pokémon popular mas não ícone, boa demanda colecionável
+4-5: Pokémon mediano, demanda moderada
+1-3: Pokémon com pouco apelo colecionável
+
+E) TENDÊNCIA DE PREÇO (peso 20%)
+10: Alta > 20% em 30 dias com volume crescente
+7-9: Alta 5-20% em 30 dias
+5-6: Estável (-5% a +5%)
+3-4: Queda 5-15% em 30 dias
+1-2: Queda > 15% em 30 dias
+
+PASSO 3 — CÁLCULO DO SCORE FINAL:
+Score Final = (A×0.15) + (B×0.20) + (C×0.20) + (D×0.25) + (E×0.20)
+Arredonde para 1 casa decimal.
+
+PASSO 4 — RECOMENDAÇÃO:
+Score ≥ 7.0 → COMPRAR
+Score 5.0–6.9 → AGUARDAR
+Score < 5.0 → EVITAR
+
+Use tabela markdown para os scores com colunas: Fator | Score | Critério aplicado | Justificativa.
+
+Inclua também:
+- Risco de reprint detalhado
+- Perspectiva de preço 3-6 meses
+
+Ao final, adicione OBRIGATORIAMENTE este bloco exato (sem alterar o formato):
+
+SCORE_FINAL: [resultado do cálculo com 1 casa decimal]
+RECOMENDACAO: [COMPRAR ou AGUARDAR ou EVITAR]
+PRECO_USD: [preço raw NM em USD ex: 15.16]`;
 
   document.getElementById('claude-prompt-box').textContent = prompt;
   window._currentPrompt = prompt;
@@ -567,32 +610,49 @@ function openCol() {
 
 // ── Score extraction ──────────────────────────────
 function extractScore(text) {
-  // Recomendação
-  const recMatch = text.match(/\b(COMPRAR|AGUARDAR|EVITAR)\b/i);
-  const rec = recMatch ? recMatch[1].toUpperCase() : null;
+  // PRIORITY 1: structured tags SCORE_FINAL / RECOMENDACAO / PRECO_USD
+  const tagScore = text.match(/SCORE_FINAL\s*:\s*(\d+(?:[.,]\d+)?)/i);
+  const tagRec   = text.match(/RECOMENDACAO\s*:\s*(COMPRAR|AGUARDAR|EVITAR)/i);
+  const tagUsd   = text.match(/PRECO_USD\s*:\s*([\d.,]+)/i);
 
-  // Score final ponderado — tenta encontrar padrão "X.X" ou "X/10" após "final" ou "ponderado"
-  let score = null;
-
-  // Padrão: "score final: 6.5" ou "final ponderado: 6,5" ou "total: 7.2"
-  const finalMatch = text.match(/(?:score\s+final|final\s+ponderado|total|resultado)[^\d]{0,20}(\d+[.,]\d+|\d+)\s*(?:\/\s*10)?/i);
-  if (finalMatch) {
-    score = parseFloat(finalMatch[1].replace(',', '.'));
+  if (tagScore || tagRec) {
+    const score = tagScore ? parseFloat(tagScore[1].replace(',','.')) : null;
+    const rec   = tagRec   ? tagRec[1].toUpperCase() : null;
+    const usd   = tagUsd   ? tagUsd[1].replace(',','.') : null;
+    return { score, rec, usd };
   }
 
-  // Fallback: pega todos os scores X/10 e faz média
+  // PRIORITY 2: "Score Final Ponderado: X.X"
+  const recFallback = text.match(/(COMPRAR|AGUARDAR|EVITAR)/i);
+  const rec = recFallback ? recFallback[1].toUpperCase() : null;
+  let score = null;
+
+  const finalMatch = text.match(/(?:score\s+final|final\s+ponderado)[^\d]{0,20}(\d+[.,]\d+|\d+)\s*(?:\/\s*10)?/i);
+  if (finalMatch) {
+    const v = parseFloat(finalMatch[1].replace(',','.'));
+    if (v >= 0 && v <= 10) score = v;
+  }
+
+  // PRIORITY 3: average of 1-2 digit X/10 values (excludes card numbers like 098/094)
   if (!score) {
-    const allScores = [...text.matchAll(/\b(\d+(?:[.,]\d+)?)\s*\/\s*10\b/g)]
-      .map(m => parseFloat(m[1].replace(',', '.')))
-      .filter(n => n >= 0 && n <= 10);
+    const allScores = [];
+    const re = /(?<!\d)(\d{1,2}(?:[.,]\d+)?)\s*\/\s*10(?!\d)/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const v = parseFloat(m[1].replace(',','.'));
+      if (v >= 0 && v <= 10) allScores.push(v);
+    }
     if (allScores.length > 0) {
-      score = Math.round((allScores.reduce((a,b)=>a+b,0) / allScores.length) * 10) / 10;
+      score = Math.round((allScores.reduce((a,b) => a+b, 0) / allScores.length) * 10) / 10;
     }
   }
 
-  return { score, rec };
-}
+  // Extract USD from text
+  const usdMatch = text.match(/\$\s*([\d]+(?:[.,]\d{1,2})?)/);
+  const usd = usdMatch ? usdMatch[1].replace(',','.') : null;
 
+  return { score, rec, usd };
+}
 function recClass(rec) {
   if (!rec) return '';
   if (rec === 'COMPRAR') return 'rec-comprar';
@@ -648,7 +708,16 @@ document.getElementById('scoreModal').addEventListener('click', function(e) {
 
 function previewScore() {
   const text = document.getElementById('scoreTextarea').value;
-  const { score, rec } = extractScore(text);
+  const { score, rec, usd } = extractScore(text);
+
+  // Auto-fill USD if found and field is empty
+  if (usd) {
+    const usdInput = document.getElementById('priceUsdInput');
+    if (!usdInput.value.trim()) {
+      usdInput.value = usd;
+      usdInput.className = 'input-ok';
+    }
+  }
   const preview = document.getElementById('modal-preview');
   const err = document.getElementById('modal-err');
   const saveBtn = document.getElementById('saveScoreBtn');
@@ -820,25 +889,34 @@ function renderWatch() {
         </div>
       </div>` : '';
 
+        const thumbHtml = item.imageUrl
+      ? `<img class="watch-thumb" src="${item.imageUrl}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" onclick="openImageModal(${i})" style="cursor:pointer;align-self:flex-start;margin-top:2px;" /><div class="watch-thumb-placeholder" style="display:none;" onclick="openImageModal(${i})"><span>🖼️</span></div>`
+      : `<div class="watch-thumb-placeholder" onclick="openImageModal(${i})" title="Adicionar imagem"><span>📷</span></div>`;
+
     return `
     <div class="watch-item">
       <div class="watch-main">
-        <span class="wname">${item.name}</span>
-        <span class="wmeta">${item.date}</span>
-        <div class="wlinks">
-          <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.tcgplayer.com/search/pokemon/product?q=${enc}" target="_blank">TCG</a>
-          <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.ebay.com/sch/i.html?_nkw=${enc}+pokemon+card&LH_Sold=1" target="_blank">eBay</a>
-          <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.ligapokemon.com.br/?view=cards%2Fcard&tipo=1&card=${enc}" target="_blank">Liga</a>
-          <button class="btn-score" onclick="openModal(${i})">+ Score</button>
-          <button class="btn-sm" style="font-size:10px;padding:4px 8px;" onclick="analyzeInCarta('${item.name.replace(/'/g,"\\'")}')">🔎</button>
-          <button class="btn-sm" style="font-size:10px;padding:4px 8px;color:var(--red);border-color:var(--red);" onclick="removeWatch(${i})">✕</button>
+        ${thumbHtml}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+            <span class="wname">${item.name}</span>
+            <span class="wmeta">${item.date}</span>
+          </div>
+          <div class="wlinks">
+            <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.tcgplayer.com/search/pokemon/product?q=${enc}" target="_blank">TCG</a>
+            <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.ebay.com/sch/i.html?_nkw=${enc}+pokemon+card&LH_Sold=1" target="_blank">eBay</a>
+            <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.ligapokemon.com.br/?view=cards%2Fcard&tipo=1&card=${enc}" target="_blank">Liga</a>
+            <button class="btn-score" onclick="openModal(${i})">+ Score</button>
+            <button class="btn-sm" style="font-size:10px;padding:4px 8px;" onclick="analyzeInCarta('${item.name.replace(/'/g,"\'")}')">🔎</button>
+            <button class="btn-sm" style="font-size:10px;padding:4px 8px;color:var(--red);border-color:var(--red);" onclick="removeWatch(${i})">✕</button>
+          </div>
         </div>
       </div>
       ${scoreBar}
       ${pricesBar}
       ${notesBar}
     </div>`;
-  }).join('');
+}).join('');
 }
 
 function parseCardId(name) {
