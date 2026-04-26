@@ -950,6 +950,159 @@ function buildTcgdexUrl(name) {
   return `https://assets.tcgdex.net/en/${setCode}/${num}/high.webp`;
 }
 
+function cleanCardNameForSearch(name) {
+  return name
+    .replace(/\(\s*\d+\s*\/\s*\d+\s*\)/g, '')
+    .replace(/\b\d+\s*\/\s*\d+\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractPrintedNumber(name) {
+  const m = name.match(/\((\d+)\s*\/\s*\d+\)|\b(\d+)\s*\/\s*\d+\b/);
+  return m ? (m[1] || m[2]).replace(/^0+/, '') : null;
+}
+
+function normalizeCardText(v) {
+  return (v || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function pickBestPokemonTcgApiCard(cards, rawName) {
+  const wantedName = normalizeCardText(cleanCardNameForSearch(rawName));
+  const wantedNumber = extractPrintedNumber(rawName);
+
+  if (!Array.isArray(cards) || !cards.length) return null;
+
+  const scored = cards.map(card => {
+    const cardName = normalizeCardText(card.name);
+    const cardNumber = String(card.number || '').replace(/^0+/, '');
+    let points = 0;
+
+    if (wantedName && cardName === wantedName) points += 6;
+    else if (wantedName && cardName.includes(wantedName)) points += 3;
+
+    if (wantedNumber && cardNumber === wantedNumber) points += 8;
+
+    if (card.images && (card.images.large || card.images.small)) points += 2;
+
+    return { card, points };
+  }).sort((a, b) => b.points - a.points);
+
+  return scored[0] && scored[0].points > 0 ? scored[0].card : cards[0];
+}
+
+async function fetchPokemonTcgApiImage(name) {
+  const cleanName = cleanCardNameForSearch(name);
+  const printedNumber = extractPrintedNumber(name);
+
+  if (!cleanName) return null;
+
+  const queryParts = [`name:"${cleanName.replace(/"/g, '\\"')}"`];
+  if (printedNumber) queryParts.push(`number:${printedNumber}`);
+
+  const url =
+    'https://api.pokemontcg.io/v2/cards?q=' +
+    encodeURIComponent(queryParts.join(' ')) +
+    '&pageSize=10&select=id,name,number,set,images';
+
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('PokemonTCG API HTTP ' + r.status);
+
+    const data = await r.json();
+    let card = pickBestPokemonTcgApiCard(data.data, name);
+
+    // Fallback: if number-constrained search fails, search only by name.
+    if ((!card || !card.images) && printedNumber) {
+      const fallbackUrl =
+        'https://api.pokemontcg.io/v2/cards?q=' +
+        encodeURIComponent(`name:"${cleanName.replace(/"/g, '\\"')}"`) +
+        '&pageSize=10&select=id,name,number,set,images';
+
+      const fr = await fetch(fallbackUrl);
+      if (fr.ok) {
+        const fd = await fr.json();
+        card = pickBestPokemonTcgApiCard(fd.data, name);
+      }
+    }
+
+    if (!card || !card.images) return null;
+
+    return {
+      imageUrl: card.images.large || card.images.small,
+      source: 'PokemonTCG API',
+      apiCardId: card.id || null,
+      apiSetName: card.set && card.set.name ? card.set.name : null
+    };
+  } catch (e) {
+    console.warn('Falha ao buscar imagem na PokemonTCG API:', e);
+    return null;
+  }
+}
+
+function testImageUrl(url) {
+  return new Promise(resolve => {
+    if (!url) return resolve(false);
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+async function resolveAndSaveImageForWatchItem(index) {
+  const item = watchlist[index];
+  if (!item || item.imageUrl) return;
+
+  item.imageStatus = 'buscando';
+  localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+  renderWatch();
+
+  // 1) Primary: public Pokémon TCG API. Better because it searches by card name/number.
+  const apiResult = await fetchPokemonTcgApiImage(item.name);
+  if (apiResult && apiResult.imageUrl && await testImageUrl(apiResult.imageUrl)) {
+    const current = watchlist[index];
+    if (!current || current.imageUrl) return;
+
+    current.imageUrl = apiResult.imageUrl;
+    current.imageSource = apiResult.source;
+    current.apiCardId = apiResult.apiCardId;
+    current.apiSetName = apiResult.apiSetName;
+    delete current.imageStatus;
+    localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+    renderWatch();
+    driveAutoPush();
+    return;
+  }
+
+  // 2) Fallback: your existing TCGdex heuristic.
+  const fallbackUrl = buildTcgdexUrl(item.name);
+  if (fallbackUrl && await testImageUrl(fallbackUrl)) {
+    const current = watchlist[index];
+    if (!current || current.imageUrl) return;
+
+    current.imageUrl = fallbackUrl;
+    current.imageSource = 'TCGdex heuristic';
+    delete current.imageStatus;
+    localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+    renderWatch();
+    driveAutoPush();
+    return;
+  }
+
+  const current = watchlist[index];
+  if (current && !current.imageUrl) {
+    current.imageStatus = 'manual';
+    localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+    renderWatch();
+  }
+}
+
 function addWatch() {
   const inp = document.getElementById('watchInput');
   const name = inp.value.trim();
@@ -958,23 +1111,16 @@ function addWatch() {
 
   const item = { name, date: new Date().toLocaleDateString('pt-BR') };
 
-  // Try to auto-detect image
-  const autoUrl = buildTcgdexUrl(name);
-  if (autoUrl) {
-    // Test if image loads
-    const img = new Image();
-    img.onload = () => {
-      const idx = watchlist.findIndex(w => w.name === name);
-      if (idx >= 0) { watchlist[idx].imageUrl = autoUrl; localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist)); renderWatch(); }
-    };
-    img.src = autoUrl;
-  }
-
   watchlist.push(item);
+  const index = watchlist.length - 1;
+
   localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
   inp.value = '';
   renderWatch();
   driveAutoPush();
+
+  // Non-blocking: the card is added immediately, then the image is filled if found.
+  resolveAndSaveImageForWatchItem(index);
 }
 
 function removeWatch(i) {
