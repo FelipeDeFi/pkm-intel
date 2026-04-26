@@ -73,9 +73,17 @@ main{padding:24px 28px;max-width:1320px;margin:0 auto;}
 .col-frame-wrap .cf-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:1px;}
 
 /* ── Watchlist ── */
-.watch-item{background:rgba(20,20,30,.8);border:1px solid var(--border);border-radius:6px;margin-bottom:8px;overflow:hidden;animation:fadeIn .2s ease;transition:border-color .15s;}
+.watch-item{background:rgba(20,20,30,.8);border:1px solid var(--border);border-radius:6px;margin-bottom:8px;overflow:hidden;animation:fadeIn .2s ease;transition:border-color .15s, opacity .15s, transform .15s;}
 .watch-item:hover{border-color:#2e2e46;}
+.watch-item.dragging{opacity:.45;transform:scale(.995);border-color:var(--accent);}
+.watch-item.drag-over{border-color:var(--accent3);box-shadow:0 0 0 1px rgba(75,207,224,.22);}
 .watch-main{display:flex;align-items:center;gap:10px;padding:11px 14px;}
+.watch-rank{width:34px;height:34px;border-radius:6px;border:1px solid var(--border);background:rgba(10,10,15,.65);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent);letter-spacing:1px;flex-shrink:0;}
+.drag-handle{width:24px;height:34px;border-radius:5px;border:1px solid transparent;display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:15px;cursor:grab;user-select:none;flex-shrink:0;}
+.drag-handle:hover{border-color:var(--border);color:var(--accent3);background:rgba(75,207,224,.04);}
+.drag-handle:active{cursor:grabbing;}
+.watch-sortbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:10px 12px;background:rgba(20,20,30,.55);border:1px solid var(--border);border-radius:6px;}
+.watch-sortbar .sort-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px;}
 .watch-item .wname{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--accent3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .watch-item .wmeta{color:var(--muted);font-size:10px;white-space:nowrap;}
 .watch-item .wlinks{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
@@ -433,11 +441,21 @@ main{padding:24px 28px;max-width:1320px;margin:0 auto;}
 
   <!-- WATCHLIST -->
   <div class="tab-pane" id="tab-watchlist">
-    <div class="search-row" style="margin-bottom:14px;">
+    <div class="search-row" style="margin-bottom:10px;">
       <input class="search-input" id="watchInput" type="text"
         placeholder="Adicionar carta à watchlist..."
         onkeydown="if(event.key==='Enter') addWatch()" />
       <button class="btn" onclick="addWatch()">+ ADD</button>
+    </div>
+    <div class="watch-sortbar">
+      <span class="sort-label">Ordenar</span>
+      <button class="btn-sm" onclick="sortWatch('manual')">Manual</button>
+      <button class="btn-sm" onclick="sortWatch('scoreDesc')">Score ↓</button>
+      <button class="btn-sm" onclick="sortWatch('scoreAsc')">Score ↑</button>
+      <button class="btn-sm" onclick="sortWatch('rec')">Recomendação</button>
+      <button class="btn-sm" onclick="sortWatch('priceUsdDesc')">USD ↓</button>
+      <button class="btn-sm" onclick="sortWatch('dateDesc')">Mais recentes</button>
+      <button class="btn-sm" onclick="sortWatch('alpha')">A-Z</button>
     </div>
     <div id="watchlistContainer"></div>
   </div>
@@ -837,16 +855,117 @@ function saveScore() {
   if (!watchlist[modalIndex].history) watchlist[modalIndex].history = [];
   watchlist[modalIndex].history.push(snapshot);
 
-  localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+  persistWatchlist();
   closeModal();
   renderWatch();
-  driveAutoPush();
 }
 
 function addChip(text) {
   const ta = document.getElementById('colNotesTextarea');
   ta.value = ta.value ? ta.value + ' · ' + text : text;
   ta.focus();
+}
+
+// ── Watchlist ordering ────────────────────────────
+let draggedWatchIndex = null;
+let watchSortMode = localStorage.getItem('pkm_watch_sort_mode') || 'manual';
+
+function normalizeWatchOrder() {
+  watchlist.forEach((item, idx) => {
+    if (item.manualOrder === undefined || item.manualOrder === null) item.manualOrder = idx;
+  });
+}
+
+function persistWatchlist(options = {}) {
+  const pushDrive = options.pushDrive !== false;
+  normalizeWatchOrder();
+  localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+  if (pushDrive) driveAutoPush();
+}
+
+function parseLocaleDateBR(d) {
+  if (!d) return 0;
+  const parts = String(d).split('/').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return 0;
+  const [day, month, year] = parts;
+  return new Date(year, month - 1, day).getTime();
+}
+
+function numericPrice(v) {
+  if (v === undefined || v === null || v === '') return -Infinity;
+  const normalized = String(v).replace(/\./g, '').replace(',', '.').replace(/[^0-9.\-]/g, '');
+  const n = parseFloat(normalized);
+  return Number.isFinite(n) ? n : -Infinity;
+}
+
+function sortWatch(mode) {
+  normalizeWatchOrder();
+  watchSortMode = mode;
+  localStorage.setItem('pkm_watch_sort_mode', mode);
+
+  const recRank = { COMPRAR: 3, AGUARDAR: 2, EVITAR: 1 };
+  const scoreVal = item => (item.score !== undefined && item.score !== null) ? Number(item.score) : -Infinity;
+
+  if (mode === 'manual') {
+    watchlist.sort((a, b) => (a.manualOrder ?? 0) - (b.manualOrder ?? 0));
+  } else if (mode === 'scoreDesc') {
+    watchlist.sort((a, b) => scoreVal(b) - scoreVal(a) || String(a.name).localeCompare(String(b.name)));
+  } else if (mode === 'scoreAsc') {
+    watchlist.sort((a, b) => scoreVal(a) - scoreVal(b) || String(a.name).localeCompare(String(b.name)));
+  } else if (mode === 'rec') {
+    watchlist.sort((a, b) => (recRank[b.rec] || 0) - (recRank[a.rec] || 0) || scoreVal(b) - scoreVal(a));
+  } else if (mode === 'priceUsdDesc') {
+    watchlist.sort((a, b) => numericPrice(b.priceUsd) - numericPrice(a.priceUsd) || String(a.name).localeCompare(String(b.name)));
+  } else if (mode === 'dateDesc') {
+    watchlist.sort((a, b) => parseLocaleDateBR(b.date) - parseLocaleDateBR(a.date) || String(a.name).localeCompare(String(b.name)));
+  } else if (mode === 'alpha') {
+    watchlist.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+  renderWatch();
+  if (mode !== 'manual') driveAutoPush();
+}
+
+function reorderWatch(fromIndex, toIndex) {
+  if (fromIndex === null || toIndex === null || Number.isNaN(fromIndex) || Number.isNaN(toIndex) || fromIndex === toIndex) return;
+  const moved = watchlist.splice(fromIndex, 1)[0];
+  watchlist.splice(toIndex, 0, moved);
+  watchlist.forEach((item, idx) => item.manualOrder = idx);
+  watchSortMode = 'manual';
+  localStorage.setItem('pkm_watch_sort_mode', 'manual');
+  persistWatchlist();
+  renderWatch();
+}
+
+function watchDragStart(e, i) {
+  draggedWatchIndex = i;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(i));
+  setTimeout(() => e.currentTarget.classList.add('dragging'), 0);
+}
+
+function watchDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function watchDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function watchDrop(e, i) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const from = draggedWatchIndex !== null ? draggedWatchIndex : parseInt(e.dataTransfer.getData('text/plain'), 10);
+  reorderWatch(from, i);
+}
+
+function watchDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.watch-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+  draggedWatchIndex = null;
 }
 
 // ── Watchlist render ──────────────────────────────
@@ -894,8 +1013,10 @@ function renderWatch() {
       : `<div class="watch-thumb-placeholder" onclick="openImageModal(${i})" title="Adicionar imagem"><span>📷</span></div>`;
 
     return `
-    <div class="watch-item">
+    <div class="watch-item" draggable="true" ondragstart="watchDragStart(event, ${i})" ondragover="watchDragOver(event)" ondragleave="watchDragLeave(event)" ondrop="watchDrop(event, ${i})" ondragend="watchDragEnd(event)">
       <div class="watch-main">
+        <div class="watch-rank">#${i + 1}</div>
+        <div class="drag-handle" title="Arrastar para reordenar">⋮⋮</div>
         ${thumbHtml}
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
@@ -1060,7 +1181,7 @@ async function resolveAndSaveImageForWatchItem(index) {
   if (!item || item.imageUrl) return;
 
   item.imageStatus = 'buscando';
-  localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+  persistWatchlist({ pushDrive: false });
   renderWatch();
 
   // 1) Primary: public Pokémon TCG API. Better because it searches by card name/number.
@@ -1074,9 +1195,8 @@ async function resolveAndSaveImageForWatchItem(index) {
     current.apiCardId = apiResult.apiCardId;
     current.apiSetName = apiResult.apiSetName;
     delete current.imageStatus;
-    localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+    persistWatchlist();
     renderWatch();
-    driveAutoPush();
     return;
   }
 
@@ -1089,16 +1209,15 @@ async function resolveAndSaveImageForWatchItem(index) {
     current.imageUrl = fallbackUrl;
     current.imageSource = 'TCGdex heuristic';
     delete current.imageStatus;
-    localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+    persistWatchlist();
     renderWatch();
-    driveAutoPush();
     return;
   }
 
   const current = watchlist[index];
   if (current && !current.imageUrl) {
     current.imageStatus = 'manual';
-    localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+    persistWatchlist({ pushDrive: false });
     renderWatch();
   }
 }
@@ -1109,15 +1228,15 @@ function addWatch() {
   if (!name) return;
   if (watchlist.find(w => w.name.toLowerCase() === name.toLowerCase())) { inp.value=''; return; }
 
-  const item = { name, date: new Date().toLocaleDateString('pt-BR') };
+  normalizeWatchOrder();
+  const item = { name, date: new Date().toLocaleDateString('pt-BR'), manualOrder: watchlist.length };
 
   watchlist.push(item);
   const index = watchlist.length - 1;
 
-  localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+  persistWatchlist();
   inp.value = '';
   renderWatch();
-  driveAutoPush();
 
   // Non-blocking: the card is added immediately, then the image is filled if found.
   resolveAndSaveImageForWatchItem(index);
@@ -1125,9 +1244,9 @@ function addWatch() {
 
 function removeWatch(i) {
   watchlist.splice(i, 1);
-  localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+  watchlist.forEach((item, idx) => item.manualOrder = idx);
+  persistWatchlist();
   renderWatch();
-  driveAutoPush();
 }
 
 function analyzeInCarta(name) {
@@ -1241,6 +1360,8 @@ async function drivePull() {
     const data = await r.json();
     if (Array.isArray(data)) {
       watchlist = data;
+      normalizeWatchOrder();
+      if (watchSortMode === 'manual') watchlist.sort((a, b) => (a.manualOrder ?? 0) - (b.manualOrder ?? 0));
       localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
       renderWatch();
       setDriveMsg(`✓ ${watchlist.length} cartas carregadas · ${new Date().toLocaleTimeString('pt-BR')}`, 'var(--green)');
@@ -1295,6 +1416,8 @@ function driveAutoPush() {
 }
 
 // ── Init
+normalizeWatchOrder();
+if (watchSortMode === 'manual') watchlist.sort((a, b) => (a.manualOrder ?? 0) - (b.manualOrder ?? 0));
 renderWatch();
 document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR');
 
@@ -1350,7 +1473,7 @@ function saveImage() {
   const url = document.getElementById('img-url-input').value.trim();
   if (url) watchlist[imgModalIndex].imageUrl = url;
   else delete watchlist[imgModalIndex].imageUrl;
-  localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
+  persistWatchlist();
   closeImageModal();
   renderWatch();
 }
