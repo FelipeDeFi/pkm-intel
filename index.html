@@ -692,6 +692,69 @@ function recClass(rec) {
   return 'rec-evitar';
 }
 
+function extractInsights(text) {
+  const insights = { factors: [], reprint: null, perspectiva: null };
+
+  // Extract factor rows from markdown table
+  // Matches: | **A) Name** | 9 | Short criterion | Long justification |
+  const re = /\|\s*\*{0,2}([A-E]\)[\s\wÀ-ɏ/(),.-]+?)\*{0,2}\s*\|\s*(\d+(?:[.,]\d+)?)\s*\|([^|]+)\|/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const name  = m[1].trim();
+    const score = parseFloat(m[2].replace(',','.'));
+    const summary = m[3].trim().replace(/\*+/g,'').replace(/\s+/g,' ').substring(0, 90);
+    if (!isNaN(score)) insights.factors.push({ name, score, summary });
+  }
+
+  // Extract reprint risk section
+  const repM = text.match(/###?\s*Risco de Reprint[^\n]*\n+([\s\S]+?)(?=\n###|\nSCORE_FINAL|$)/i);
+  if (repM) insights.reprint = repM[1].replace(/[*_#]+/g,'').replace(/\s+/g,' ').trim().substring(0,220);
+
+  // Extract perspectiva section
+  const pM = text.match(/###?\s*Perspectiva[^\n]*\n+([\s\S]+?)(?=\n###|\nSCORE_FINAL|$)/i);
+  if (pM) insights.perspectiva = pM[1].replace(/[*_#]+/g,'').replace(/\s+/g,' ').trim().substring(0,220);
+
+  return insights.factors.length ? insights : null;
+}
+
+function renderInsights(h) {
+  if (!h.insights || !h.insights.factors || !h.insights.factors.length) return '';
+  const meta = {
+    'A)': { short: 'COMP',      icon: '⚔️'  },
+    'B)': { short: 'REPRINT',   icon: '🔒'  },
+    'C)': { short: 'RARIDADE',  icon: '💎'  },
+    'D)': { short: 'DEMANDA',   icon: '🔥'  },
+    'E)': { short: 'TENDÊNCIA', icon: '📈'  }
+  };
+  const rows = h.insights.factors.map(f => {
+    const key = Object.keys(meta).find(k => f.name.startsWith(k)) || '';
+    const m   = meta[key] || { short: f.name.substring(0,8), icon: '•' };
+    const sc  = f.score >= 7 ? 'var(--green)' : f.score >= 5 ? 'var(--accent)' : 'var(--red)';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);width:70px;flex-shrink:0;white-space:nowrap;">${m.icon} ${m.short}</span>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:17px;color:${sc};min-width:20px;line-height:1;">${f.score}</span>
+      <span style="font-size:10px;color:#7070a0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${f.summary.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+    </div>`;
+  }).join('');
+
+  const reprint = h.insights.reprint
+    ? `<div style="margin-top:7px;padding:6px 9px;background:rgba(224,92,75,.06);border-left:2px solid var(--red);border-radius:0 3px 3px 0;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:3px;">⚠ RISCO REPRINT</div>
+        <div style="font-size:10px;color:#9090a8;line-height:1.55;">${h.insights.reprint.replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,200)}${h.insights.reprint.length>200?'…':''}</div>
+      </div>` : '';
+
+  const persp = h.insights.perspectiva
+    ? `<div style="margin-top:6px;padding:6px 9px;background:rgba(75,205,122,.05);border-left:2px solid var(--green);border-radius:0 3px 3px 0;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);letter-spacing:1px;margin-bottom:3px;">📅 PERSPECTIVA 3-6 MESES</div>
+        <div style="font-size:10px;color:#9090a8;line-height:1.55;">${h.insights.perspectiva.replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,200)}${h.insights.perspectiva.length>200?'…':''}</div>
+      </div>` : '';
+
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">📋 análise detalhada</div>
+    ${rows}${reprint}${persp}
+  </div>`;
+}
+
 function scoreColor(score) {
   if (score === null) return 'var(--muted)';
   if (score >= 7) return 'var(--green)';
@@ -850,7 +913,8 @@ function saveScore() {
     rec,
     priceUsd: usd,
     priceBrl: brl,
-    colNotes: document.getElementById('colNotesTextarea').value.trim() || null
+    colNotes: document.getElementById('colNotesTextarea').value.trim() || null,
+    insights: extractInsights(text)
   };
 
   // Save current values for quick display
@@ -1815,6 +1879,7 @@ function openHistory(i) {
             })() : ''}
           </div>
           ${h.colNotes ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:#9090a8;"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--accent3);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:3px;">📊 Collectrics</span>${h.colNotes.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
+          ${renderInsights(h)}
         </div>`;
     }).join('');
     document.getElementById('history-content').innerHTML = rows;
