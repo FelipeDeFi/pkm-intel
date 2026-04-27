@@ -1088,14 +1088,22 @@ function renderWatch() {
 
     const colMetricsBar = cd ? (() => {
       const dp = parseFloat(cd.dp), ss = parseFloat(cd.ss);
-      const dpLabel = dp >= 12 ? 'very tight' : dp >= 7 ? 'moderada' : dp >= 3 ? 'soft' : 'heavy supply';
-      const ssLabel = ss > 1.5 ? 'loosening ⚠️' : ss > 1.0 ? 'neutral' : 'tightening ✓';
+      const alRaw = cd.al ? String(cd.al).trim() : null;
+      const alNeg = alRaw && alRaw.startsWith('-');
+
+      // Labels PT-BR
+      const dpLabel = dp >= 12 ? 'escassa' : dp >= 7 ? 'moderada' : dp >= 3 ? 'fraca' : 'excesso';
+      const ssLabel = ss > 1.5 ? 'expandindo ⚠️' : ss > 1.0 ? 'neutro' : 'contraindo ✓';
+      const alLabel = alNeg ? 'oferta caindo' : 'oferta subindo';
+
       const dpBar = !isNaN(dp) ? colBar(dp, 15,
         [{color:'#e05c4b',at:0},{color:'#f7c948',at:33},{color:'#4bcd7a',at:66}]) : '';
       const ssBar = !isNaN(ss) ? colBar(ss, 2,
         [{color:'#4bcd7a',at:0},{color:'#f7c948',at:50},{color:'#e05c4b',at:85}]) : '';
       const alFmt = fmtPct(cd.al);
-      const alColor = cd.al && String(cd.al).trim().startsWith('-') ? 'var(--green)' : 'var(--red)';
+      const alColor = alNeg ? 'var(--green)' : 'var(--red)';
+
+      // Chips para o header
       const dpChip = !isNaN(dp) ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
         <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">DP</span>
         <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:${dp>=10?'var(--green)':dp<5?'var(--red)':'var(--accent)'};">${cd.dp}%</span>
@@ -1106,10 +1114,45 @@ function renderWatch() {
         <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:${ss>1.5?'var(--red)':ss>1.0?'var(--accent)':'var(--green)'};">${cd.ss}${ss>1.5?' ⚠️':''}</span>
         <span style="font-size:8px;color:var(--muted);">${ssLabel}</span>
       </span>` : '';
-      const alChip = cd.al ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
+      const alChip = alRaw ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
         <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">AL</span>
         <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:${alColor};">${alFmt}</span>
       </span>` : '';
+
+      // Conclusão automática — narrativa por indicador
+      const dpScore = !isNaN(dp) ? (dp >= 10 ? 2 : dp >= 5 ? 1 : 0) : null;
+      const ssScore = !isNaN(ss) ? (ss > 1.5 ? -2 : ss > 1.0 ? -1 : 1) : null;
+      const alScore = alRaw ? (alNeg ? 1 : -1) : null;
+      const scores = [dpScore, ssScore, alScore].filter(x => x !== null);
+      const total = scores.length ? scores.reduce((a,b)=>a+b,0) : null;
+
+      // Frases por indicador
+      const dpFrase = !isNaN(dp) ? (
+        dp >= 10 ? `a demanda está aquecida (${cd.dp}%)` :
+        dp >= 5  ? `a demanda está moderada (${cd.dp}%)` :
+                   `a demanda está fraca (${cd.dp}%)`
+      ) : null;
+      const ssFrase = !isNaN(ss) ? (
+        ss > 1.5 ? `a saturação de oferta está alta (${cd.ss}) — possível sinal de flood ou reprint` :
+        ss > 1.0 ? `a saturação de oferta está neutra (${cd.ss})` :
+                   `a saturação de oferta está contraindo (${cd.ss}), indicando supply enxuto`
+      ) : null;
+      const alFrase = alRaw ? (
+        alNeg ? `os anúncios ativos caíram ${alFmt} — oferta diminuindo` :
+                `os anúncios ativos subiram ${alFmt} — oferta aumentando`
+      ) : null;
+
+      const partes = [dpFrase, ssFrase, alFrase].filter(Boolean);
+      let conclusao = '', conclusaoCor = 'var(--muted)', emoji = '⚪';
+      if (partes.length) {
+        if      (total >= 3)  { emoji = '✅'; conclusaoCor = 'var(--green)'; }
+        else if (total >= 1)  { emoji = '🟡'; conclusaoCor = 'var(--accent)'; }
+        else if (total === 0) { emoji = '⚪'; conclusaoCor = 'var(--muted)'; }
+        else if (total >= -2) { emoji = '🟠'; conclusaoCor = '#f7a048'; }
+        else                  { emoji = '🔴'; conclusaoCor = 'var(--red)'; }
+        conclusao = `${emoji} ${partes.join(', ')}.`;
+      }
+
       return `
       <div class="col-metrics-bar" style="flex-direction:column;gap:0;padding:0;">
         <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;cursor:pointer;flex-wrap:nowrap;" onclick="toggleSection(this)">
@@ -1120,34 +1163,35 @@ function renderWatch() {
             <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);" data-toggle-icon>▶</span>
           </span>
         </div>
-        <div data-section-body style="display:none;padding:10px 18px 14px;border-top:1px solid var(--border);">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 32px;">
-            ${!isNaN(dp) ? `<div>
+        <div data-section-body style="display:none;padding:10px 18px 12px;border-top:1px solid var(--border);">
+          <div style="display:flex;gap:24px;align-items:flex-start;">
+            ${!isNaN(dp) ? `<div style="flex:1;min-width:0;">
               <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
-                <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Demand Pressure</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Pressão de Demanda</span>
                 <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${dp>=10?'var(--green)':dp<5?'var(--red)':'var(--accent)'};">${cd.dp}%</span>
               </div>
               ${dpBar}
               <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);">
-                <span>heavy supply</span><span style="color:${dp>=10?'var(--green)':dp<5?'var(--red)':'var(--accent)'};">${dpLabel}</span><span>very tight</span>
+                <span>excesso</span><span style="color:${dp>=10?'var(--green)':dp<5?'var(--red)':'var(--accent)'};">${dpLabel}</span><span>escassa</span>
               </div>
             </div>` : ''}
-            ${!isNaN(ss) ? `<div>
+            ${!isNaN(ss) ? `<div style="flex:1;min-width:0;">
               <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
-                <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Supply Saturation Shift</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Saturação de Oferta</span>
                 <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${ss>1.5?'var(--red)':ss>1.0?'var(--accent)':'var(--green)'};">${cd.ss}${ss>1.5?' ⚠️':''}</span>
               </div>
               ${ssBar}
               <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);">
-                <span>tightening</span><span style="color:${ss>1.5?'var(--red)':ss>1.0?'var(--accent)':'var(--green)'};">${ssLabel}</span><span>loosening</span>
+                <span>contraindo</span><span style="color:${ss>1.5?'var(--red)':ss>1.0?'var(--accent)':'var(--green)'};">${ssLabel}</span><span>expandindo</span>
               </div>
             </div>` : ''}
-            ${cd.al ? `<div style="align-self:center;">
-              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Active Listings vs 30d</div>
+            ${alRaw ? `<div style="flex:0 0 auto;align-self:center;text-align:center;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px;">Anúncios vs 30d</div>
               <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${alColor};">${alFmt}</div>
-              <div style="font-size:9px;color:var(--muted);">${String(cd.al).trim().startsWith('-') ? 'supply contraindo' : 'supply crescendo'}</div>
+              <div style="font-size:9px;color:var(--muted);">${alLabel}</div>
             </div>` : ''}
           </div>
+          ${conclusao ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:${conclusaoCor};line-height:1.4;">${conclusao}</div>` : ''}
         </div>
       </div>`; })() : '';
 
