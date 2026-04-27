@@ -198,14 +198,26 @@ function applyCollectricsMetrics(card, match) {
     collectricsAsOf: seven['as-of'] || '',
     source: 'Collectrics API'
   };
+
+  setCollectricsFrameToCard(match.id);
 }
 
-async function autoFillCollectrics() {
+function setCollectricsFrameToCard(id) {
+  if (!id) return;
+  const url = `https://mycollectrics.com/card.html?id=${encodeURIComponent(id)}`;
+  const iframe = document.getElementById('col-modal-iframe');
+  const ext = document.getElementById('col-modal-ext');
+  if (iframe && iframe.src !== url) iframe.src = url;
+  if (ext) ext.href = url;
+}
+
+async function autoFillCollectrics(options = {}) {
   if (colModalIndex < 0) return;
   const item = watchlist[colModalIndex];
   const btn = document.getElementById('col-auto-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'BUSCANDO...'; }
-  setColAutoStatus('Buscando no Collectrics...', 'var(--accent)');
+  const silent = !!options.silent;
+  if (btn && !silent) { btn.disabled = true; btn.textContent = 'BUSCANDO...'; }
+  if (!silent) setColAutoStatus('Buscando no Collectrics...', 'var(--accent)');
   try {
     const cards = await fetchCollectricsSearchCards(item.name);
     if (!cards.length) throw new Error('Nenhuma carta encontrada no Collectrics');
@@ -221,11 +233,11 @@ async function autoFillCollectrics() {
     }
     const detail = await fetchCollectricsDetail(best.card.id);
     applyCollectricsMetrics(detail, best.card);
-    setColAutoStatus(`Preenchido de ${best.card['product-name']} (${best.card['set-name'] || 'set sem nome'}). Confira e clique SALVAR.`, 'var(--green)');
+    if (!silent) setColAutoStatus(`Preenchido de ${best.card['product-name']} (${best.card['set-name'] || 'set sem nome'}). Confira e clique SALVAR.`, 'var(--green)');
   } catch (e) {
-    setColAutoStatus(e.message || 'Falha ao coletar dados automaticamente', 'var(--red)');
+    if (!silent) setColAutoStatus(e.message || 'Falha ao coletar dados automaticamente', 'var(--red)');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'AUTO COLETAR'; }
+    if (btn && !silent) { btn.disabled = false; btn.textContent = 'AUTO COLETAR'; }
   }
 }
 
@@ -276,7 +288,9 @@ function openColModal(i) {
   colAutoMeta = null;
   const item = watchlist[i];
   document.getElementById('col-modal-name').textContent = item.name;
-  const url = buildCollectricsSearchUrl(item.name);
+  const url = item.colData && item.colData.collectricsId
+    ? `https://mycollectrics.com/card.html?id=${encodeURIComponent(item.colData.collectricsId)}`
+    : buildCollectricsSearchUrl(item.name);
   document.getElementById('col-modal-iframe').src = url;
   document.getElementById('col-modal-ext').href  = url;
   document.getElementById('col-modal-iframe').onload = () => scheduleCollectricsIframeFill(item.name);
@@ -294,6 +308,7 @@ function openColModal(i) {
   colSsCheck();
   updateColInterpretation();
   document.getElementById('colModal').classList.add('open');
+  if (!cd.collectricsId) setTimeout(() => autoFillCollectrics({ silent: true }), 150);
 }
 
 function closeColModal() {

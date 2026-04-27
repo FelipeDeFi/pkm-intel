@@ -777,7 +777,6 @@ function renderWatch() {
             <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.ligapokemon.com.br/?view=cards%2Fcard&tipo=1&card=${enc}" target="_blank">Liga</a>
             <button class="btn-score" onclick="openModal(${i})">+ Score</button>
             <button class="btn-score" style="color:var(--accent3);border-color:rgba(75,207,224,.3);background:rgba(75,207,224,.06);" onclick="openColModal(${i})">📊</button>
-            <button class="btn-sm" style="font-size:10px;padding:4px 8px;" onclick="analyzeInCarta('${item.name.replace(/'/g,"\'")}')">🔎</button>
             <button class="btn-sm" style="font-size:10px;padding:4px 8px;color:var(--red);border-color:var(--red);" onclick="removeWatch(${i})">✕</button>
           </div>
         </div>

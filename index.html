@@ -84,154 +84,9 @@
 
 <main>
 
-  <div class="search-row">
-    <input class="search-input" id="searchInput" type="text"
-      placeholder="Nome da carta para abrir nas fontes externas..."
-      onkeydown="if(event.key==='Enter') searchAll()" />
-    <button class="btn" onclick="searchAll()">BUSCAR</button>
-  </div>
-
   <div class="tabs">
-    <button class="tab active" data-tab="fontes">🔗 Fontes</button>
-    <button class="tab" data-tab="carta">🔎 Analisar Carta</button>
     <button class="tab" data-tab="collectrics">📊 Collectrics</button>
-    <button class="tab" data-tab="watchlist">📋 Watchlist</button>
-  </div>
-
-  <!-- FONTES -->
-  <div class="tab-pane active" id="tab-fontes">
-    <div class="claude-hint">
-      <span class="ch-icon">💡</span>
-      <div class="ch-text">Para <strong>análises com AI</strong> (score, reprint, meta), use o <strong>chat do Claude</strong> — incluso no seu plano. Este dashboard é 100% gratuito.</div>
-    </div>
-
-    <div class="section-label">// Mercado & Preços</div>
-    <div class="link-grid">
-      <a class="link-card" href="https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&view=grid&inStock=true" target="_blank">
-        <span class="lc-icon">🛒</span><div class="lc-title">TCGPlayer</div>
-        <div class="lc-desc">Preços de mercado em tempo real, histórico de vendas, listings ativos.</div>
-        <div class="lc-url">tcgplayer.com</div>
-      </a>
-      <a class="link-card" href="https://www.ebay.com/sch/i.html?_nkw=pokemon+card&LH_Sold=1&LH_Complete=1" target="_blank">
-        <span class="lc-icon">🔨</span><div class="lc-title">eBay Vendidos</div>
-        <div class="lc-desc">Preços reais de vendas concluídas — referência mais confiável de valor de mercado.</div>
-        <div class="lc-url">ebay.com (sold listings)</div>
-      </a>
-      <a class="link-card" href="https://www.ligapokemon.com.br" target="_blank">
-        <span class="lc-icon">🇧🇷</span><div class="lc-title">Liga Pokémon BR</div>
-        <div class="lc-desc">Preços em reais, mercado brasileiro, referência local para compra e venda.</div>
-        <div class="lc-url">ligapokemon.com.br</div>
-      </a>
-      <a class="link-card" href="https://www.mercadolivre.com.br/ofertas?category_id=MLB1253" target="_blank">
-        <span class="lc-icon">🟡</span><div class="lc-title">Mercado Livre</div>
-        <div class="lc-desc">Mercado BR — filtre por "vendidos" para ver preços reais praticados.</div>
-        <div class="lc-url">mercadolivre.com.br</div>
-      </a>
-    </div>
-
-    <div class="divider"></div>
-    <div class="section-label">// Reprints & Leaks</div>
-    <div class="link-grid">
-      <a class="link-card" href="https://www.pokebeach.com" target="_blank">
-        <span class="lc-icon">🏖️</span><div class="lc-title">PokeBeach</div>
-        <div class="lc-desc">Principal fonte de leaks e anúncios. Reprints confirmados antes de qualquer outro site.</div>
-        <div class="lc-url">pokebeach.com</div>
-      </a>
-      <a class="link-card" href="https://www.pokemon.com/us/pokemon-tcg/pokemon-cards/" target="_blank">
-        <span class="lc-icon">🔴</span><div class="lc-title">Pokemon.com</div>
-        <div class="lc-desc">Anúncios oficiais de sets, promos e reprints. Fonte primária para confirmações.</div>
-        <div class="lc-url">pokemon.com</div>
-      </a>
-      <a class="link-card" href="https://www.reddit.com/r/PokemonTCG/" target="_blank">
-        <span class="lc-icon">🟠</span><div class="lc-title">r/PokemonTCG</div>
-        <div class="lc-desc">Comunidade ativa. Rumores, pulls, movimentos de preço e discussões de mercado.</div>
-        <div class="lc-url">reddit.com/r/PokemonTCG</div>
-      </a>
-    </div>
-
-    <div class="divider"></div>
-    <div class="section-label">// Competitivo</div>
-    <div class="link-grid">
-      <a class="link-card" href="https://limitlesstcg.com/decks" target="_blank">
-        <span class="lc-icon">⚔️</span><div class="lc-title">Limitless TCG</div>
-        <div class="lc-desc">Meta atual, tier lists, top decks de torneios. Melhor fonte de dados competitivos.</div>
-        <div class="lc-url">limitlesstcg.com</div>
-      </a>
-      <a class="link-card" href="https://rk9.gg/tournaments/pokemon" target="_blank">
-        <span class="lc-icon">🏆</span><div class="lc-title">RK9 Labs</div>
-        <div class="lc-desc">Resultados de torneios oficiais, listas de decks dos top players.</div>
-        <div class="lc-url">rk9.gg</div>
-      </a>
-    </div>
-
-    <div class="divider"></div>
-    <div class="section-label">// Grading & PSA</div>
-    <div class="link-grid">
-      <a class="link-card" href="https://www.psacard.com/pop" target="_blank">
-        <span class="lc-icon">🏅</span><div class="lc-title">PSA Pop Report</div>
-        <div class="lc-desc">Quantas cópias de cada carta foram gradadas. Supply de PSA 10 define o teto de preço.</div>
-        <div class="lc-url">psacard.com/pop</div>
-      </a>
-      <a class="link-card" href="https://www.psacard.com/auctionprices" target="_blank">
-        <span class="lc-icon">💰</span><div class="lc-title">PSA Auction Prices</div>
-        <div class="lc-desc">Histórico de leilões de cartas gradadas. Referência de preço máximo do mercado.</div>
-        <div class="lc-url">psacard.com/auctionprices</div>
-      </a>
-    </div>
-  </div>
-
-  <!-- ANALISAR CARTA -->
-  <div class="tab-pane" id="tab-carta">
-    <div class="claude-hint">
-      <span class="ch-icon">🤖</span>
-      <div class="ch-text">Digite o nome da carta e clique <strong>BUSCAR</strong>. Os botões abrem a carta direto em cada fonte. Para análise AI gratuita, copie o prompt e cole no <strong>chat do Claude</strong>.</div>
-    </div>
-
-    <div id="carta-result" style="display:none;">
-      <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--accent);" id="carta-name-display"></span>
-        <button class="btn-sm" onclick="resetCarta()">✕ Limpar</button>
-      </div>
-
-      <div class="carta-panel">
-        <h3>Preço & Mercado</h3>
-        <div class="carta-links" id="links-preco"></div>
-      </div>
-      <div class="carta-panel">
-        <h3>Liga Pokémon BR</h3>
-        <div class="carta-links" id="links-liga"></div>
-      </div>
-      <div class="carta-panel">
-        <h3>Grading PSA</h3>
-        <div class="carta-links" id="links-psa"></div>
-      </div>
-      <div class="carta-panel">
-        <h3>Collectrics</h3>
-        <div class="carta-links" id="links-col"></div>
-      </div>
-
-      <div class="carta-panel" style="background:rgba(247,201,72,.03);border-color:rgba(247,201,72,.2);">
-        <h3 style="color:var(--accent);">Análise AI (gratuito)</h3>
-        <div style="font-size:12px;color:#9090a8;margin-bottom:10px;">Copie o prompt abaixo e cole no chat do Claude:</div>
-        <div style="background:rgba(224,92,75,.06);border:1px solid rgba(224,92,75,.2);border-radius:4px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:8px;">
-          <span style="font-size:14px;flex-shrink:0;">⚠️</span>
-          <div style="font-size:11px;color:#c0a0a0;line-height:1.6;">
-            <strong style="color:#e05c4b;">Atenção ao score de Competitividade</strong> — o prompt agora instrui o Claude a pesquisar no Limitless TCG antes de pontuar. Mesmo assim, verifique manualmente se a carta aparece em decklists: basicões e suportes frequentemente são peças-chave em top decks e podem ser subavaliados.
-            <a href="https://limitlesstcg.com/decks" target="_blank" style="color:var(--accent3);margin-left:4px;">Verificar no Limitless →</a>
-          </div>
-        </div>
-        <div id="claude-prompt-box" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c0c0d0;line-height:1.7;margin-bottom:10px;white-space:pre-wrap;"></div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <button class="btn-sm" onclick="copyPrompt()">📋 Copiar Prompt</button>
-          <span id="copy-confirm" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green);display:none;">✓ Copiado!</span>
-        </div>
-      </div>
-    </div>
-
-    <div id="carta-empty" style="text-align:center;padding:50px 20px;color:var(--muted);font-size:13px;line-height:1.9;">
-      <span style="font-size:28px;display:block;margin-bottom:10px;">🔎</span>
-      Digite o nome de uma carta no campo acima e clique <strong style="color:var(--text);">BUSCAR</strong>.
-    </div>
+    <button class="tab active" data-tab="watchlist">📋 Watchlist</button>
   </div>
 
   <!-- COLLECTRICS -->
@@ -286,7 +141,7 @@
   </div>
 
   <!-- WATCHLIST -->
-  <div class="tab-pane" id="tab-watchlist">
+  <div class="tab-pane active" id="tab-watchlist">
     <div class="search-row" style="margin-bottom:10px;">
       <input class="search-input" id="watchInput" type="text"
         placeholder="Adicionar carta à watchlist..."
