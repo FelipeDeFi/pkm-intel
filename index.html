@@ -1077,10 +1077,30 @@ function renderWatch() {
 
     const cd = item.colData;
     const fmtPct = v => { if (!v) return null; const s = String(v).trim(); return (s.startsWith('+')||s.startsWith('-')) ? s+'%' : '+'+s+'%'; };
-    const dpColor = cd && cd.dp ? (parseFloat(cd.dp) >= 10 ? 'var(--green)' : parseFloat(cd.dp) < 5 ? 'var(--red)' : 'var(--accent)') : 'var(--text)';
-    const ssColor = cd && cd.ss ? (parseFloat(cd.ss) > 1.5 ? 'var(--red)' : 'var(--text)') : 'var(--text)';
-    const ptColor = cd && cd.pt ? (String(cd.pt).trim().startsWith('-') ? 'var(--red)' : 'var(--green)') : 'var(--text)';
-    const colMetricsBar = cd ? `
+
+    function colBar(value, max, stops, labels) {
+      const pct = Math.min(Math.max((parseFloat(value)/max)*100, 0), 100);
+      const stopsCss = stops.map(s => `${s.color} ${s.at}%`).join(', ');
+      const labelHtml = labels.map(l => `<span style="position:absolute;left:${l.at}%;transform:translateX(-50%);font-size:9px;color:var(--muted);top:14px;">${l.label}</span>`).join('');
+      return `<div style="position:relative;height:8px;border-radius:4px;background:linear-gradient(to right,${stopsCss});margin:6px 0 22px;">
+        <div style="position:absolute;top:-4px;left:${pct}%;transform:translateX(-50%);width:4px;height:16px;background:#fff;border-radius:2px;box-shadow:0 0 4px rgba(0,0,0,.5);"></div>
+        <div style="position:relative;height:0;">${labelHtml}</div>
+      </div>`;
+    }
+
+    const colMetricsBar = cd ? (() => {
+      const dp = parseFloat(cd.dp), ss = parseFloat(cd.ss);
+      const dpLabel = dp >= 12 ? 'very tight' : dp >= 7 ? 'moderada' : dp >= 3 ? 'soft' : 'heavy supply';
+      const ssLabel = ss > 1.5 ? 'loosening ⚠️' : ss > 1.0 ? 'neutral' : 'tightening ✓';
+      const dpBar = !isNaN(dp) ? colBar(dp, 15,
+        [{color:'#e05c4b',at:0},{color:'#f7c948',at:33},{color:'#4bcd7a',at:66}],
+        [{at:0,label:'2%'},{at:33,label:'5%'},{at:66,label:'10%'},{at:100,label:'15%'}]) : '';
+      const ssBar = !isNaN(ss) ? colBar(ss, 2,
+        [{color:'#4bcd7a',at:0},{color:'#f7c948',at:50},{color:'#e05c4b',at:85}],
+        [{at:0,label:'0.0'},{at:50,label:'1.0'},{at:100,label:'2.0'}]) : '';
+      const alFmt = fmtPct(cd.al);
+      const alColor = cd.al && String(cd.al).trim().startsWith('-') ? 'var(--green)' : 'var(--red)';
+      return `
       <div class="col-metrics-bar" style="flex-direction:column;gap:0;padding:0;">
         <div style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;" onclick="toggleSection(this)">
           <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--accent3);letter-spacing:1px;text-transform:uppercase;">📊 Collectrics · ${cd.updatedAt||''}</span>
@@ -1089,15 +1109,38 @@ function renderWatch() {
             <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);" data-toggle-icon>▶</span>
           </span>
         </div>
-        <div data-section-body style="display:none;padding:4px 14px 10px;border-top:1px solid var(--border);">
-          <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding-top:8px;">
-            ${cd.dp ? `<div class="cm-item"><div class="cm-label">Demand Pressure</div><div class="cm-value" style="color:${dpColor};">${cd.dp}%</div></div>` : ''}
-            ${cd.ss ? `<div class="cm-item"><div class="cm-label">Supply Shift</div><div class="cm-value" style="color:${ssColor};">${cd.ss}${parseFloat(cd.ss)>1.5?' ⚠️':''}</div></div>` : ''}
-            ${cd.pt ? `<div class="cm-item"><div class="cm-label">Trend 30d raw</div><div class="cm-value" style="color:${ptColor};">${fmtPct(cd.pt)}</div></div>` : ''}
-            ${cd.al ? `<div class="cm-item"><div class="cm-label">Active Listings</div><div class="cm-value" style="color:var(--muted);">${fmtPct(cd.al)}</div></div>` : ''}
+        <div data-section-body style="display:none;padding:10px 18px 14px;border-top:1px solid var(--border);">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 32px;flex-wrap:wrap;">
+            ${!isNaN(dp) ? `<div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Demand Pressure</span>
+                <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${dp>=10?'var(--green)':dp<5?'var(--red)':'var(--accent)'};">${cd.dp}%</span>
+              </div>
+              ${dpBar}
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:-18px;">
+                <span>heavy supply</span><span>very tight</span>
+              </div>
+              <div style="font-size:10px;color:var(--muted);margin-top:6px;">${dpLabel}</div>
+            </div>` : ''}
+            ${!isNaN(ss) ? `<div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Supply Saturation Shift</span>
+                <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${ss>1.5?'var(--red)':ss>1.0?'var(--accent)':'var(--green)'};">${cd.ss}${ss>1.5?' ⚠️':''}</span>
+              </div>
+              ${ssBar}
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:-18px;">
+                <span>tightening</span><span>loosening</span>
+              </div>
+              <div style="font-size:10px;color:var(--muted);margin-top:6px;">${ssLabel}</div>
+            </div>` : ''}
+            ${cd.al ? `<div style="align-self:center;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Active Listings vs 30d</div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${alColor};">${alFmt}</div>
+              <div style="font-size:10px;color:var(--muted);">${String(cd.al).trim().startsWith('-') ? 'supply contraindo' : 'supply crescendo'}</div>
+            </div>` : ''}
           </div>
         </div>
-      </div>` : '';
+      </div>`; })() : '';
 
     const notesBar = (item.colNotes && !item.colData) ? `
       <div class="watch-notes" style="padding:0;">
@@ -1889,22 +1932,19 @@ function saveImage() {
       <div class="col-form-panel">
         <div class="col-metric-field">
           <label>🔥 Demand Pressure (%)</label>
-          <input type="text" id="col-dp" placeholder="Ex: 10.9" inputmode="decimal" />
-          <div class="col-metric-hint">&gt;10% aquecida · &lt;5% heavy supply</div>
+          <input type="text" id="col-dp" placeholder="Ex: 10.9" inputmode="decimal" oninput="colValidate('col-dp','pct')" />
+          <div id="col-dp-hint" class="col-metric-hint">&gt;10% aquecida · &lt;5% heavy supply</div>
         </div>
         <div class="col-metric-field">
           <label>📉 Supply Saturation Shift</label>
-          <input type="text" id="col-ss" placeholder="Ex: 1.1" inputmode="decimal" oninput="colSsCheck()" />
+          <input type="text" id="col-ss" placeholder="Ex: 1.1" inputmode="decimal" oninput="colValidate('col-ss','decimal');colSsCheck()" />
           <div id="col-ss-flag" class="col-metric-hint" style="color:var(--red);display:none;">⚠️ &gt; 1.5 — sinal de reprint</div>
           <div id="col-ss-ok" class="col-metric-hint" style="display:none;">✓ Neutro</div>
         </div>
         <div class="col-metric-field">
-          <label>📈 Price Trend 30d raw (%)</label>
-          <input type="text" id="col-pt" placeholder="Ex: +17.6 ou -23.1" inputmode="decimal" />
-        </div>
-        <div class="col-metric-field">
           <label>📦 Active Listings vs 30d (%)</label>
-          <input type="text" id="col-al" placeholder="Ex: +17.2 ou -5.0" inputmode="decimal" />
+          <input type="text" id="col-al" placeholder="Ex: +24.9 ou -5.0" inputmode="decimal" oninput="colValidate('col-al','signed')" />
+          <div id="col-al-hint" class="col-metric-hint">Use + ou - antes do número</div>
         </div>
         <div class="modal-actions" style="margin-top:auto;padding-top:8px;">
           <button class="btn-sm" onclick="closeColModal()">Cancelar</button>
@@ -1932,6 +1972,18 @@ function saveImage() {
 // ── Collectrics Modal ────────────────────────────
 let colModalIndex = -1;
 
+function colValidate(id, type) {
+  const el = document.getElementById(id);
+  const v  = el.value.trim();
+  if (!v) { el.style.borderColor = 'var(--border)'; return true; }
+  let ok = false;
+  if (type === 'pct')     ok = /^\d+(\.\d+)?$/.test(v) && parseFloat(v) >= 0 && parseFloat(v) <= 100;
+  if (type === 'decimal') ok = /^\d+(\.\d+)?$/.test(v) && parseFloat(v) >= 0;
+  if (type === 'signed')  ok = /^[+-]?\d+(\.\d+)?$/.test(v);
+  el.style.borderColor = ok ? 'var(--green)' : 'var(--red)';
+  return ok;
+}
+
 function openColModal(i) {
   colModalIndex = i;
   const item = watchlist[i];
@@ -1943,8 +1995,8 @@ function openColModal(i) {
   const cd = item.colData || {};
   document.getElementById('col-dp').value = cd.dp || '';
   document.getElementById('col-ss').value = cd.ss || '';
-  document.getElementById('col-pt').value = cd.pt || '';
   document.getElementById('col-al').value = cd.al || '';
+  ['col-dp','col-ss','col-al'].forEach(id => { document.getElementById(id).style.borderColor = 'var(--border)'; });
   colSsCheck();
   document.getElementById('colModal').classList.add('open');
 }
@@ -1963,12 +2015,15 @@ function colSsCheck() {
 
 function saveColData() {
   if (colModalIndex < 0) return;
+  const dpOk = colValidate('col-dp','pct');
+  const ssOk = colValidate('col-ss','decimal');
+  const alOk = colValidate('col-al','signed');
+  if (!dpOk || !ssOk || !alOk) return;
   const dp = document.getElementById('col-dp').value.trim();
   const ss = document.getElementById('col-ss').value.trim();
-  const pt = document.getElementById('col-pt').value.trim();
   const al = document.getElementById('col-al').value.trim();
-  if (!dp && !ss && !pt && !al) { closeColModal(); return; }
-  watchlist[colModalIndex].colData = { dp, ss, pt, al, updatedAt: new Date().toLocaleDateString('pt-BR') };
+  if (!dp && !ss && !al) { closeColModal(); return; }
+  watchlist[colModalIndex].colData = { dp, ss, al, updatedAt: new Date().toLocaleDateString('pt-BR') };
   persistWatchlist();
   closeColModal();
   renderWatch();
