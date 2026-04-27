@@ -1078,13 +1078,11 @@ function renderWatch() {
     const cd = item.colData;
     const fmtPct = v => { if (!v) return null; const s = String(v).trim(); return (s.startsWith('+')||s.startsWith('-')) ? s+'%' : '+'+s+'%'; };
 
-    function colBar(value, max, stops, labels) {
+    function colBar(value, max, stops) {
       const pct = Math.min(Math.max((parseFloat(value)/max)*100, 0), 100);
       const stopsCss = stops.map(s => `${s.color} ${s.at}%`).join(', ');
-      const labelHtml = labels.map(l => `<span style="position:absolute;left:${l.at}%;transform:translateX(-50%);font-size:9px;color:var(--muted);top:14px;">${l.label}</span>`).join('');
-      return `<div style="position:relative;height:8px;border-radius:4px;background:linear-gradient(to right,${stopsCss});margin:6px 0 22px;">
-        <div style="position:absolute;top:-4px;left:${pct}%;transform:translateX(-50%);width:4px;height:16px;background:#fff;border-radius:2px;box-shadow:0 0 4px rgba(0,0,0,.5);"></div>
-        <div style="position:relative;height:0;">${labelHtml}</div>
+      return `<div style="position:relative;height:6px;border-radius:3px;background:linear-gradient(to right,${stopsCss});margin:5px 0 4px;">
+        <div style="position:absolute;top:-5px;left:${pct}%;transform:translateX(-50%);width:3px;height:16px;background:#fff;border-radius:2px;box-shadow:0 0 4px rgba(0,0,0,.6);"></div>
       </div>`;
     }
 
@@ -1093,11 +1091,9 @@ function renderWatch() {
       const dpLabel = dp >= 12 ? 'very tight' : dp >= 7 ? 'moderada' : dp >= 3 ? 'soft' : 'heavy supply';
       const ssLabel = ss > 1.5 ? 'loosening ⚠️' : ss > 1.0 ? 'neutral' : 'tightening ✓';
       const dpBar = !isNaN(dp) ? colBar(dp, 15,
-        [{color:'#e05c4b',at:0},{color:'#f7c948',at:33},{color:'#4bcd7a',at:66}],
-        [{at:0,label:'2%'},{at:33,label:'5%'},{at:66,label:'10%'},{at:100,label:'15%'}]) : '';
+        [{color:'#e05c4b',at:0},{color:'#f7c948',at:33},{color:'#4bcd7a',at:66}]) : '';
       const ssBar = !isNaN(ss) ? colBar(ss, 2,
-        [{color:'#4bcd7a',at:0},{color:'#f7c948',at:50},{color:'#e05c4b',at:85}],
-        [{at:0,label:'0.0'},{at:50,label:'1.0'},{at:100,label:'2.0'}]) : '';
+        [{color:'#4bcd7a',at:0},{color:'#f7c948',at:50},{color:'#e05c4b',at:85}]) : '';
       const alFmt = fmtPct(cd.al);
       const alColor = cd.al && String(cd.al).trim().startsWith('-') ? 'var(--green)' : 'var(--red)';
       const dpChip = !isNaN(dp) ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
@@ -1132,10 +1128,9 @@ function renderWatch() {
                 <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${dp>=10?'var(--green)':dp<5?'var(--red)':'var(--accent)'};">${cd.dp}%</span>
               </div>
               ${dpBar}
-              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:-18px;">
-                <span>heavy supply</span><span>very tight</span>
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);">
+                <span>heavy supply</span><span style="color:${dp>=10?'var(--green)':dp<5?'var(--red)':'var(--accent)'};">${dpLabel}</span><span>very tight</span>
               </div>
-              <div style="font-size:10px;color:var(--muted);margin-top:6px;">${dpLabel}</div>
             </div>` : ''}
             ${!isNaN(ss) ? `<div>
               <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
@@ -1143,15 +1138,14 @@ function renderWatch() {
                 <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${ss>1.5?'var(--red)':ss>1.0?'var(--accent)':'var(--green)'};">${cd.ss}${ss>1.5?' ⚠️':''}</span>
               </div>
               ${ssBar}
-              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:-18px;">
-                <span>tightening</span><span>loosening</span>
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);">
+                <span>tightening</span><span style="color:${ss>1.5?'var(--red)':ss>1.0?'var(--accent)':'var(--green)'};">${ssLabel}</span><span>loosening</span>
               </div>
-              <div style="font-size:10px;color:var(--muted);margin-top:6px;">${ssLabel}</div>
             </div>` : ''}
             ${cd.al ? `<div style="align-self:center;">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Active Listings vs 30d</div>
               <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${alColor};">${alFmt}</div>
-              <div style="font-size:10px;color:var(--muted);">${String(cd.al).trim().startsWith('-') ? 'supply contraindo' : 'supply crescendo'}</div>
+              <div style="font-size:9px;color:var(--muted);">${String(cd.al).trim().startsWith('-') ? 'supply contraindo' : 'supply crescendo'}</div>
             </div>` : ''}
           </div>
         </div>
