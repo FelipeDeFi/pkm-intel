@@ -2054,7 +2054,7 @@ function saveImage() {
           <input type="text" id="col-dp" placeholder="Ex: 4.3" inputmode="decimal" oninput="colInputChanged('col-dp','pct')" />
           <div id="col-dp-hint" class="col-metric-hint">&gt;10% aquecida · &lt;5% heavy supply</div>
         </div>
-        <div class="col-metric-field">
+        <div class="col-metric-field" style="display:none;">
           <label>📉 Supply Saturation Shift</label>
           <input type="text" id="col-ss" placeholder="Ex: 1.1" inputmode="decimal" oninput="colInputChanged('col-ss','decimal');colSsCheck()" />
           <div id="col-ss-flag" class="col-metric-hint" style="color:var(--red);display:none;">⚠️ &gt; 1.5 — sinal de reprint</div>
@@ -2062,14 +2062,21 @@ function saveImage() {
         </div>
         <div class="col-metric-field">
           <label>📦 Active Listings vs 30d (%)</label>
-          <input type="text" id="col-al" placeholder="Ex: -13.7" inputmode="decimal" oninput="colInputChanged('col-al','signed')" />
-          <div id="col-al-hint" class="col-metric-hint">Use + ou - antes do número</div>
+          <input type="text" id="col-al-legacy" placeholder="Ex: -13.7" inputmode="decimal" disabled />
+          <div id="col-al-legacy-hint" class="col-metric-hint">Use + ou - antes do numero</div>
         </div>
+        <button class="btn-sm" id="col-auto-btn" onclick="autoFillCollectrics()" style="align-self:flex-start;color:var(--accent3);border-color:rgba(75,207,224,.35);">AUTO COLETAR</button>
+        <div id="col-auto-status" class="col-metric-hint" style="display:none;"></div>
         <div class="col-form-grid">
           <div class="col-metric-field">
             <label>Active listings</label>
             <input type="text" id="col-al-count" placeholder="Ex: 271" inputmode="numeric" oninput="colInputChanged('col-al-count','int')" />
             <div class="col-metric-hint">Quantidade de anuncios ativos</div>
+          </div>
+          <div class="col-metric-field">
+            <label>Active listings vs 30d (%)</label>
+            <input type="text" id="col-al" placeholder="Ex: +17.2 ou -13.7" inputmode="decimal" oninput="colInputChanged('col-al','signed')" />
+            <div id="col-al-hint" class="col-metric-hint">Use + ou - antes do numero</div>
           </div>
           <div class="col-metric-field">
             <label>New listings</label>
@@ -2120,6 +2127,7 @@ function saveImage() {
 <script>
 // ── Collectrics Modal ────────────────────────────
 let colModalIndex = -1;
+let colAutoMeta = null;
 const COL_FIELD_IDS = ['col-dp','col-ss','col-al','col-al-count','col-nl','col-nl-pct','col-sold','col-sold-pct'];
 
 function normalizeMetricInput(value, type) {
@@ -2232,14 +2240,154 @@ function updateColInterpretation() {
   if (el) el.textContent = interpretColData(readColFormData());
 }
 
+function setColAutoStatus(msg, color) {
+  const el = document.getElementById('col-auto-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color = color || 'var(--muted)';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function metricOut(value, decimals = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '';
+  return n.toFixed(decimals).replace(/\.0$/, '');
+}
+
+function metricPct(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '';
+  const pct = n * 100;
+  return (pct > 0 ? '+' : '') + metricOut(pct, 1);
+}
+
+async function fetchCollectricsSearchCards(name) {
+  const q = encodeURIComponent(cleanCardNameForSearch(name) || name);
+  const data = await fetchCollectricsJson(`https://mycollectrics.com/api/search/cards?q=${q}&limit=12&offset=0`);
+  return Array.isArray(data.results) ? data.results : [];
+}
+
+async function fetchCollectricsJson(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  } catch (directErr) {
+    const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error('Proxy HTTP ' + res.status);
+    return res.json();
+  }
+}
+
+function scoreCollectricsCard(card, rawName) {
+  const wantedName = normalizeCardText(cleanCardNameForSearch(rawName));
+  const wantedNumber = extractPrintedNumber(rawName);
+  const product = normalizeCardText(card && card['product-name']);
+  const searchText = normalizeCardText(card && card.searchText);
+  const cardNumber = String((card && card['card-number']) || '').replace(/^0+/, '');
+  let score = 0;
+  if (wantedName && product.includes(wantedName)) score += 5;
+  if (wantedName && searchText.includes(wantedName)) score += 2;
+  if (wantedNumber && cardNumber === wantedNumber) score += 8;
+  if (card && card.id) score += 1;
+  return score;
+}
+
+async function fetchCollectricsDetail(id) {
+  return fetchCollectricsJson(`https://mycollectrics.com/api/card/${encodeURIComponent(id)}?include=ebay`);
+}
+
+function applyCollectricsMetrics(card, match) {
+  const mp = card && card.collectrics && card.collectrics['market-pressure'];
+  const bucket = (mp && (mp.estimated || mp.observed)) || null;
+  const seven = bucket && bucket['7d'];
+  const base = bucket && bucket['baseline-comparison'];
+  if (!seven || !base) throw new Error('Sem market-pressure no retorno do Collectrics');
+
+  const raw = seven.raw || {};
+  const metrics = seven.metrics || {};
+  document.getElementById('col-al-count').value = metricOut(raw['avg-active'], 0);
+  document.getElementById('col-nl').value = metricOut(raw['avg-new'], 1);
+  document.getElementById('col-sold').value = metricOut(raw['avg-sold-est'], 1);
+  document.getElementById('col-dp').value = metricOut((metrics['demand-pressure-est'] ?? metrics['demand-pressure']) * 100, 1);
+  document.getElementById('col-al').value = metricPct(base['active-listings-delta-pct']);
+  document.getElementById('col-nl-pct').value = metricPct(base['supply-delta-pct']);
+  document.getElementById('col-sold-pct').value = metricPct(base['demand-delta-pct']);
+  document.getElementById('col-ss').value = metricOut(base['supply-saturation-index'], 2);
+  COL_FIELD_IDS.forEach(id => colInputChanged(id, id === 'col-al-count' ? 'int' : (id === 'col-dp' ? 'pct' : (id === 'col-ss' || id === 'col-nl' || id === 'col-sold' ? 'decimal' : 'signed'))));
+  colSsCheck();
+  updateColInterpretation();
+  colAutoMeta = {
+    collectricsId: match.id,
+    collectricsName: match['product-name'] || card['product-name'] || '',
+    collectricsSet: match['set-name'] || card['set-name'] || '',
+    collectricsAsOf: seven['as-of'] || '',
+    source: 'Collectrics API'
+  };
+}
+
+async function autoFillCollectrics() {
+  if (colModalIndex < 0) return;
+  const item = watchlist[colModalIndex];
+  const btn = document.getElementById('col-auto-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'BUSCANDO...'; }
+  setColAutoStatus('Buscando no Collectrics...', 'var(--accent)');
+  try {
+    const cards = await fetchCollectricsSearchCards(item.name);
+    if (!cards.length) throw new Error('Nenhuma carta encontrada no Collectrics');
+    const ranked = cards
+      .map(card => ({ card, score: scoreCollectricsCard(card, item.name) }))
+      .sort((a, b) => b.score - a.score);
+    const best = ranked[0];
+    const second = ranked[1];
+    const wantedNumber = extractPrintedNumber(item.name);
+    if (!best || best.score < (wantedNumber ? 10 : 6) || (second && second.score === best.score && wantedNumber)) {
+      const names = ranked.slice(0, 3).map(x => x.card['product-name']).filter(Boolean).join(' | ');
+      throw new Error('Match ambiguo. Abra a nova aba e confira: ' + names);
+    }
+    const detail = await fetchCollectricsDetail(best.card.id);
+    applyCollectricsMetrics(detail, best.card);
+    setColAutoStatus(`Preenchido de ${best.card['product-name']} (${best.card['set-name'] || 'set sem nome'}). Confira e clique SALVAR.`, 'var(--green)');
+  } catch (e) {
+    setColAutoStatus(e.message || 'Falha ao coletar dados automaticamente', 'var(--red)');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'AUTO COLETAR'; }
+  }
+}
+
+function buildCollectricsSearchUrl(name) {
+  const clean = cleanCardNameForSearch(name);
+  const q = encodeURIComponent(clean || name);
+  return `https://mycollectrics.com/search.html?q=${q}&search=${q}&query=${q}`;
+}
+
+function tryFillCollectricsIframeSearch(name) {
+  const iframe = document.getElementById('col-modal-iframe');
+  const clean = cleanCardNameForSearch(name);
+  if (!iframe || !clean) return;
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    const input = doc.querySelector('input[type="search"], input[name*="search" i], input[placeholder*="search" i], input[placeholder*="bus" i], input[type="text"]');
+    if (!input) return;
+    input.value = clean;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  } catch (e) {
+    // Cross-origin iframes can block direct fill; URL query params still help when supported.
+  }
+}
+
 function openColModal(i) {
   colModalIndex = i;
+  colAutoMeta = null;
   const item = watchlist[i];
   document.getElementById('col-modal-name').textContent = item.name;
-  const q   = encodeURIComponent(item.name);
-  const url = `https://mycollectrics.com/search.html?q=${q}`;
+  const url = buildCollectricsSearchUrl(item.name);
   document.getElementById('col-modal-iframe').src = url;
   document.getElementById('col-modal-ext').href  = url;
+  document.getElementById('col-modal-iframe').onload = () => tryFillCollectricsIframeSearch(item.name);
+  setColAutoStatus('', '');
   const cd = item.colData || {};
   document.getElementById('col-dp').value = cd.dp || '';
   document.getElementById('col-ss').value = cd.ss || '';
@@ -2282,6 +2430,7 @@ function saveColData() {
   if (!Object.values(data).some(Boolean)) { closeColModal(); return; }
   watchlist[colModalIndex].colData = {
     ...data,
+    ...(colAutoMeta || {}),
     interpretation: interpretColData(data),
     updatedAt: new Date().toLocaleDateString('pt-BR')
   };
