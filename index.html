@@ -224,17 +224,6 @@ main{padding:24px 28px;max-width:1320px;margin:0 auto;}
       </div>
     </div>
 
-    <div class="modal-section-label">📊 Observações do Collectrics <span style="color:var(--muted);font-size:9px;">(opcional)</span></div>
-    <div class="col-chips">
-      <span class="col-chip" onclick="addChip('🔥 Demand Pressure alto')">🔥 Demand alto</span>
-      <span class="col-chip" onclick="addChip('📉 Supply Saturation > 1.5')">📉 Supply alto</span>
-      <span class="col-chip" onclick="addChip('📈 Price Trend positivo 30d')">📈 Trend +30d</span>
-      <span class="col-chip" onclick="addChip('📉 Price Trend negativo 30d')">📉 Trend -30d</span>
-      <span class="col-chip" onclick="addChip('💰 EV por pack acima da média')">💰 EV alto</span>
-      <span class="col-chip" onclick="addChip('⚠️ Supply saturado')">⚠️ Saturado</span>
-    </div>
-    <textarea id="colNotesTextarea" placeholder="Cole ou escreva observações do Collectrics aqui...&#10;Ex: Demand Pressure 72%, Supply Saturation 0.8, Price Trend +18% 30d" style="min-height:70px;margin-bottom:0;"></textarea>
-
     <div class="modal-section-label">💰 Preço no momento da análise <span style="color:var(--red);font-size:9px;font-weight:700;">OBRIGATÓRIO</span></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
       Abra os links da carta antes de salvar:
@@ -791,7 +780,7 @@ function openModal(i) {
   modalIndex = i;
   document.getElementById('modal-carta-name').textContent = watchlist[i].name;
   document.getElementById('scoreTextarea').value = '';
-  document.getElementById('colNotesTextarea').value = watchlist[i].colNotes || '';
+  // colNotes legacy — no longer in score modal
   document.getElementById('priceUsdInput').value = '';
   document.getElementById('priceBrlInput').value = '';
   document.getElementById('priceUsdInput').className = '';
@@ -838,22 +827,6 @@ function previewScore() {
     }
   }
 
-  // Auto-fill Collectrics notes if found in pasted text
-  const colTa = document.getElementById('colNotesTextarea');
-  if (!colTa.value.trim()) {
-    const colLines = [];
-    const dpM  = text.match(/demand\s*pressure[:\s]+([^\n.]+)/i);
-    const ssM  = text.match(/supply\s*saturation(?:\s*shift)?[:\s]+([^\n.]+)/i);
-    const ptM  = text.match(/price\s*trend[:\s]+([^\n.]+)/i);
-    const evM  = text.match(/set\s*ev[:\s]+([^\n.]+)/i);
-    const ssShift = text.match(/supply\s*saturation\s*shift\s*[>≥]\s*([\d.]+)/i);
-    if (dpM)      colLines.push('Demand Pressure: ' + dpM[1].trim().substring(0,60));
-    if (ssM)      colLines.push('Supply Saturation: ' + ssM[1].trim().substring(0,60));
-    if (ssShift)  colLines.push('⚠️ Supply Saturation Shift > ' + ssShift[1]);
-    if (ptM)      colLines.push('Price Trend: ' + ptM[1].trim().substring(0,60));
-    if (evM)      colLines.push('Set EV: ' + evM[1].trim().substring(0,60));
-    if (colLines.length) colTa.value = colLines.join(' · ');
-  }
   const preview = document.getElementById('modal-preview');
   const err = document.getElementById('modal-err');
   const saveBtn = document.getElementById('saveScoreBtn');
@@ -954,7 +927,6 @@ function saveScore() {
     rec,
     priceUsd: usd,
     priceBrl: brl,
-    colNotes: document.getElementById('colNotesTextarea').value.trim() || null,
     insights: extractInsights(text)
   };
 
@@ -966,9 +938,6 @@ function saveScore() {
   watchlist[modalIndex].priceBrl = brl;
   watchlist[modalIndex].priceUsdDate = snapshot.date;
   watchlist[modalIndex].priceBrlDate = snapshot.date;
-  const notes = document.getElementById('colNotesTextarea').value.trim();
-  if (notes) watchlist[modalIndex].colNotes = notes;
-  else delete watchlist[modalIndex].colNotes;
 
   // Append to history
   if (!watchlist[modalIndex].history) watchlist[modalIndex].history = [];
@@ -979,11 +948,7 @@ function saveScore() {
   renderWatch();
 }
 
-function addChip(text) {
-  const ta = document.getElementById('colNotesTextarea');
-  ta.value = ta.value ? ta.value + ' · ' + text : text;
-  ta.focus();
-}
+// addChip removed — Collectrics now has dedicated modal
 
 // ── Watchlist ordering ────────────────────────────
 let draggedWatchIndex = null;
