@@ -1100,17 +1100,32 @@ function renderWatch() {
         [{at:0,label:'0.0'},{at:50,label:'1.0'},{at:100,label:'2.0'}]) : '';
       const alFmt = fmtPct(cd.al);
       const alColor = cd.al && String(cd.al).trim().startsWith('-') ? 'var(--green)' : 'var(--red)';
+      const dpChip = !isNaN(dp) ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">DP</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:${dp>=10?'var(--green)':dp<5?'var(--red)':'var(--accent)'};">${cd.dp}%</span>
+        <span style="font-size:8px;color:var(--muted);">${dpLabel}</span>
+      </span>` : '';
+      const ssChip = !isNaN(ss) ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">SS</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:${ss>1.5?'var(--red)':ss>1.0?'var(--accent)':'var(--green)'};">${cd.ss}${ss>1.5?' ⚠️':''}</span>
+        <span style="font-size:8px;color:var(--muted);">${ssLabel}</span>
+      </span>` : '';
+      const alChip = cd.al ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">AL</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:${alColor};">${alFmt}</span>
+      </span>` : '';
       return `
       <div class="col-metrics-bar" style="flex-direction:column;gap:0;padding:0;">
-        <div style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;" onclick="toggleSection(this)">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--accent3);letter-spacing:1px;text-transform:uppercase;">📊 Collectrics · ${cd.updatedAt||''}</span>
-          <span style="margin-left:auto;display:flex;gap:6px;align-items:center;">
-            <button class="btn-score" style="color:var(--accent3);border-color:rgba(75,207,224,.3);background:rgba(75,207,224,.06);font-size:9px;" onclick="event.stopPropagation();openColModal(${i})">✏️ Editar</button>
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;cursor:pointer;flex-wrap:nowrap;" onclick="toggleSection(this)">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--accent3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap;">📊 ${cd.updatedAt||''}</span>
+          <span style="display:flex;gap:5px;flex-wrap:nowrap;align-items:center;">${dpChip}${ssChip}${alChip}</span>
+          <span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;">
+            <button class="btn-score" style="color:var(--accent3);border-color:rgba(75,207,224,.3);background:rgba(75,207,224,.06);font-size:9px;" onclick="event.stopPropagation();openColModal(${i})">✏️</button>
             <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);" data-toggle-icon>▶</span>
           </span>
         </div>
         <div data-section-body style="display:none;padding:10px 18px 14px;border-top:1px solid var(--border);">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 32px;flex-wrap:wrap;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 32px;">
             ${!isNaN(dp) ? `<div>
               <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
                 <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Demand Pressure</span>
