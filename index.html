@@ -149,15 +149,18 @@ main{padding:24px 28px;max-width:1320px;margin:0 auto;}
 .section-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
 
 /* ── Collectrics structured modal ── */
-.col-modal-body{display:grid;grid-template-columns:1fr 340px;gap:16px;}
+.col-modal-body{display:grid;grid-template-columns:1fr 390px;gap:16px;}
 @media(max-width:720px){.col-modal-body{grid-template-columns:1fr;}}
 .col-iframe-wrap{border:1px solid var(--border);border-radius:5px;overflow:hidden;background:#fff;display:flex;flex-direction:column;min-height:400px;}
 .col-iframe-wrap iframe{flex:1;border:none;width:100%;min-height:400px;}
 .col-form-panel{display:flex;flex-direction:column;gap:10px;}
+.col-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:520px){.col-form-grid{grid-template-columns:1fr;}}
 .col-metric-field label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:4px;}
 .col-metric-field input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px 10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none;transition:border-color .2s;}
 .col-metric-field input:focus{border-color:var(--accent3);}
 .col-metric-hint{font-size:10px;color:var(--muted);margin-top:3px;}
+.col-interpretation{background:rgba(75,207,224,.05);border:1px solid rgba(75,207,224,.16);border-radius:5px;padding:10px 12px;font-size:11px;color:#aeb3c8;line-height:1.55;}
 /* ── Collectrics metrics bar on watchlist card ── */
 .col-metrics-bar{padding:7px 14px 9px;border-top:1px solid var(--border);background:rgba(75,207,224,.03);display:flex;gap:18px;flex-wrap:wrap;align-items:center;}
 .cm-item{display:flex;flex-direction:column;gap:1px;}
@@ -1090,6 +1093,11 @@ function renderWatch() {
       const dp = parseFloat(cd.dp), ss = parseFloat(cd.ss);
       const alRaw = cd.al ? String(cd.al).trim() : null;
       const alNeg = alRaw && alRaw.startsWith('-');
+      const alCountRaw = cd.alCount ? String(cd.alCount).trim() : null;
+      const nlRaw = cd.nl ? String(cd.nl).trim() : null;
+      const nlPctRaw = cd.nlPct ? String(cd.nlPct).trim() : null;
+      const soldRaw = cd.sold ? String(cd.sold).trim() : null;
+      const soldPctRaw = cd.soldPct ? String(cd.soldPct).trim() : null;
 
       // Labels PT-BR
       const dpLabel = dp >= 12 ? 'escassa' : dp >= 7 ? 'moderada' : dp >= 3 ? 'fraca' : 'excesso';
@@ -1118,6 +1126,20 @@ function renderWatch() {
         <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">AL</span>
         <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:${alColor};">${alFmt}</span>
       </span>` : '';
+      const alCountChip = alCountRaw ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">ATIVOS</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--text);">${alCountRaw}</span>
+      </span>` : '';
+      const nlChip = nlRaw ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">NOVOS</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--text);">${nlRaw}</span>
+        ${nlPctRaw ? `<span style="font-size:8px;color:${nlPctRaw.startsWith('-')?'var(--green)':'var(--red)'};">${fmtPct(nlPctRaw)}</span>` : ''}
+      </span>` : '';
+      const soldChip = soldRaw ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(75,207,224,.07);border:1px solid rgba(75,207,224,.2);border-radius:4px;padding:2px 6px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">VEND.</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--text);">${soldRaw}</span>
+        ${soldPctRaw ? `<span style="font-size:8px;color:${soldPctRaw.startsWith('-')?'var(--red)':'var(--green)'};">${fmtPct(soldPctRaw)}</span>` : ''}
+      </span>` : '';
 
       // Conclusão automática — narrativa por indicador
       const dpScore = !isNaN(dp) ? (dp >= 10 ? 2 : dp >= 5 ? 1 : 0) : null;
@@ -1142,7 +1164,9 @@ function renderWatch() {
                 `os anúncios ativos subiram ${alFmt} — oferta aumentando`
       ) : null;
 
-      const partes = [dpFrase, ssFrase, alFrase].filter(Boolean);
+      const nlFrase = nlRaw ? `novos anÃºncios: ${nlRaw}${nlPctRaw ? ` (${fmtPct(nlPctRaw)} vs 30d)` : ''}` : null;
+      const soldFrase = soldRaw ? `vendas estimadas: ${soldRaw}${soldPctRaw ? ` (${fmtPct(soldPctRaw)} vs 30d)` : ''}` : null;
+      const partes = [dpFrase, soldFrase, ssFrase, alFrase, nlFrase].filter(Boolean);
       let conclusao = '', conclusaoCor = 'var(--muted)', emoji = '⚪';
       if (partes.length) {
         if      (total >= 3)  { emoji = '✅'; conclusaoCor = 'var(--green)'; }
@@ -1157,7 +1181,7 @@ function renderWatch() {
       <div class="col-metrics-bar" style="flex-direction:column;gap:0;padding:0;">
         <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;cursor:pointer;flex-wrap:nowrap;" onclick="toggleSection(this)">
           <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--accent3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap;">📊 ${cd.updatedAt||''}</span>
-          <span style="display:flex;gap:5px;flex-wrap:nowrap;align-items:center;">${dpChip}${ssChip}${alChip}</span>
+          <span style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">${dpChip}${ssChip}${alChip}${alCountChip}${nlChip}${soldChip}</span>
           <span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;">
             <button class="btn-score" style="color:var(--accent3);border-color:rgba(75,207,224,.3);background:rgba(75,207,224,.06);font-size:9px;" onclick="event.stopPropagation();openColModal(${i})">✏️</button>
             <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);" data-toggle-icon>▶</span>
@@ -1192,6 +1216,7 @@ function renderWatch() {
             </div>` : ''}
           </div>
           ${conclusao ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:${conclusaoCor};line-height:1.4;">${conclusao}</div>` : ''}
+          ${cd.interpretation ? `<div style="margin-top:8px;font-size:10px;color:#aeb3c8;line-height:1.45;">${escapeHtml(cd.interpretation)}</div>` : ''}
         </div>
       </div>`; })() : '';
 
@@ -1687,10 +1712,12 @@ function analyzeInCarta(name) {
 // ── Google Drive Sync ────────────────────────────
 const DRIVE_CLIENT_ID = localStorage.getItem('pkm_drive_client_id') || '';
 const DRIVE_FILE_NAME  = 'pkm-intel-watchlist.json';
-const DRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.appdata';
+const DRIVE_FOLDER_NAME = 'PKM Intel';
+const DRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata';
 
 let driveToken   = null;
 let driveFileId  = null;
+let driveFolderId = null;
 let driveSyncing = false;
 
 function setDriveMsg(msg, color) {
@@ -1745,7 +1772,7 @@ function driveSignIn() {
 
   const client = google.accounts.oauth2.initTokenClient({
     client_id: cid,
-    scope: 'https://www.googleapis.com/auth/drive.appdata',
+    scope: DRIVE_SCOPE,
     callback: (resp) => {
       if (resp.error) {
         setDriveBtn('☁ Erro — tentar novamente', 'var(--red)');
@@ -1762,8 +1789,45 @@ function driveSignIn() {
 }
 
 async function driveFindFile() {
+  const visible = await driveFindVisibleFile();
+  if (visible) return { id: visible, legacy: false };
+
   const r = await fetch(
     `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${DRIVE_FILE_NAME}'&fields=files(id)`,
+    { headers: { Authorization: `Bearer ${driveToken}` } }
+  );
+  const data = await r.json();
+  return data.files && data.files.length ? { id: data.files[0].id, legacy: true } : null;
+}
+
+async function driveFindOrCreateFolder() {
+  if (driveFolderId) return driveFolderId;
+  const q = encodeURIComponent(`name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,
+    { headers: { Authorization: `Bearer ${driveToken}` } }
+  );
+  const data = await r.json();
+  if (data.files && data.files.length) {
+    driveFolderId = data.files[0].id;
+    return driveFolderId;
+  }
+
+  const cr = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${driveToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
+  });
+  const created = await cr.json();
+  driveFolderId = created.id;
+  return driveFolderId;
+}
+
+async function driveFindVisibleFile() {
+  const folderId = await driveFindOrCreateFolder();
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and '${folderId}' in parents and trashed=false`);
+  const r = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,
     { headers: { Authorization: `Bearer ${driveToken}` } }
   );
   const data = await r.json();
@@ -1774,15 +1838,15 @@ async function drivePull() {
   if (!driveToken) return;
   setDriveMsg('⬇ carregando do Drive...', 'var(--accent3)');
   try {
-    const fid = await driveFindFile();
-    if (!fid) {
+    const found = await driveFindFile();
+    if (!found) {
       setDriveMsg('sem dados no Drive — faça o primeiro sync', 'var(--muted)');
       driveFileId = null;
       return;
     }
-    driveFileId = fid;
+    driveFileId = found.legacy ? null : found.id;
     const r = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fid}?alt=media`,
+      `https://www.googleapis.com/drive/v3/files/${found.id}?alt=media`,
       { headers: { Authorization: `Bearer ${driveToken}` } }
     );
     const data = await r.json();
@@ -1792,6 +1856,7 @@ async function drivePull() {
       if (watchSortMode === 'manual') watchlist.sort((a, b) => (a.manualOrder ?? 0) - (b.manualOrder ?? 0));
       localStorage.setItem('pkm_watchlist', JSON.stringify(watchlist));
       renderWatch();
+      if (found.legacy) drivePush();
       setDriveMsg(`✓ ${watchlist.length} cartas carregadas · ${new Date().toLocaleTimeString('pt-BR')}`, 'var(--green)');
       setTimeout(() => setDriveMsg('', ''), 5000);
     }
@@ -1806,19 +1871,20 @@ async function drivePush() {
   setDriveMsg('⬆ salvando no Drive...', 'var(--accent)');
   try {
     const body = JSON.stringify(watchlist);
-    const fid = driveFileId || await driveFindFile();
+    const visibleId = driveFileId || await driveFindVisibleFile();
 
-    if (fid) {
+    if (visibleId) {
       // Update existing file
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=media`, {
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${visibleId}?uploadType=media`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${driveToken}`, 'Content-Type': 'application/json' },
         body
       });
-      driveFileId = fid;
+      driveFileId = visibleId;
     } else {
-      // Create new file in appDataFolder
-      const meta = JSON.stringify({ name: DRIVE_FILE_NAME, parents: ['appDataFolder'] });
+      // Create new visible file in the PKM Intel folder
+      const folderId = await driveFindOrCreateFolder();
+      const meta = JSON.stringify({ name: DRIVE_FILE_NAME, parents: [folderId] });
       const form = new FormData();
       form.append('metadata', new Blob([meta], { type: 'application/json' }));
       form.append('file', new Blob([body], { type: 'application/json' }));
@@ -1985,19 +2051,49 @@ function saveImage() {
       <div class="col-form-panel">
         <div class="col-metric-field">
           <label>🔥 Demand Pressure (%)</label>
-          <input type="text" id="col-dp" placeholder="Ex: 10.9" inputmode="decimal" oninput="colValidate('col-dp','pct')" />
+          <input type="text" id="col-dp" placeholder="Ex: 4.3" inputmode="decimal" oninput="colInputChanged('col-dp','pct')" />
           <div id="col-dp-hint" class="col-metric-hint">&gt;10% aquecida · &lt;5% heavy supply</div>
         </div>
         <div class="col-metric-field">
           <label>📉 Supply Saturation Shift</label>
-          <input type="text" id="col-ss" placeholder="Ex: 1.1" inputmode="decimal" oninput="colValidate('col-ss','decimal');colSsCheck()" />
+          <input type="text" id="col-ss" placeholder="Ex: 1.1" inputmode="decimal" oninput="colInputChanged('col-ss','decimal');colSsCheck()" />
           <div id="col-ss-flag" class="col-metric-hint" style="color:var(--red);display:none;">⚠️ &gt; 1.5 — sinal de reprint</div>
           <div id="col-ss-ok" class="col-metric-hint" style="display:none;">✓ Neutro</div>
         </div>
         <div class="col-metric-field">
           <label>📦 Active Listings vs 30d (%)</label>
-          <input type="text" id="col-al" placeholder="Ex: +24.9 ou -5.0" inputmode="decimal" oninput="colValidate('col-al','signed')" />
+          <input type="text" id="col-al" placeholder="Ex: -13.7" inputmode="decimal" oninput="colInputChanged('col-al','signed')" />
           <div id="col-al-hint" class="col-metric-hint">Use + ou - antes do número</div>
+        </div>
+        <div class="col-form-grid">
+          <div class="col-metric-field">
+            <label>Active listings</label>
+            <input type="text" id="col-al-count" placeholder="Ex: 271" inputmode="numeric" oninput="colInputChanged('col-al-count','int')" />
+            <div class="col-metric-hint">Quantidade de anuncios ativos</div>
+          </div>
+          <div class="col-metric-field">
+            <label>New listings</label>
+            <input type="text" id="col-nl" placeholder="Ex: 13.9" inputmode="decimal" oninput="colInputChanged('col-nl','decimal')" />
+            <div class="col-metric-hint">Novos anuncios no periodo</div>
+          </div>
+          <div class="col-metric-field">
+            <label>New listings vs 30d (%)</label>
+            <input type="text" id="col-nl-pct" placeholder="Ex: +0.7" inputmode="decimal" oninput="colInputChanged('col-nl-pct','signed')" />
+            <div class="col-metric-hint">Positivo = nova oferta entrando</div>
+          </div>
+          <div class="col-metric-field">
+            <label>Sold est</label>
+            <input type="text" id="col-sold" placeholder="Ex: 11.7" inputmode="decimal" oninput="colInputChanged('col-sold','decimal')" />
+            <div class="col-metric-hint">Estimativa de vendas</div>
+          </div>
+          <div class="col-metric-field">
+            <label>Sold est vs 30d (%)</label>
+            <input type="text" id="col-sold-pct" placeholder="Ex: -10.7" inputmode="decimal" oninput="colInputChanged('col-sold-pct','signed')" />
+            <div class="col-metric-hint">Negativo = demanda esfriando</div>
+          </div>
+        </div>
+        <div class="col-interpretation" id="col-live-interpretation">
+          Preencha os campos para ver a leitura automatica de oferta, demanda e timing de compra.
         </div>
         <div class="modal-actions" style="margin-top:auto;padding-top:8px;">
           <button class="btn-sm" onclick="closeColModal()">Cancelar</button>
@@ -2024,6 +2120,32 @@ function saveImage() {
 <script>
 // ── Collectrics Modal ────────────────────────────
 let colModalIndex = -1;
+const COL_FIELD_IDS = ['col-dp','col-ss','col-al','col-al-count','col-nl','col-nl-pct','col-sold','col-sold-pct'];
+
+function normalizeMetricInput(value, type) {
+  let v = String(value || '').replace(',', '.').replace(/[^\d.+-]/g, '');
+  if (type !== 'signed') v = v.replace(/[+-]/g, '');
+  if (type === 'int') v = v.replace(/[^\d]/g, '');
+  if (type === 'signed') {
+    v = v.replace(/(?!^)[+-]/g, '');
+    if (v.startsWith('+-') || v.startsWith('-+')) v = v.slice(1);
+  }
+  const sign = v.match(/^[+-]/)?.[0] || '';
+  const body = sign ? v.slice(1) : v;
+  const parts = body.split('.');
+  if (parts.length > 1) v = sign + parts[0] + '.' + parts.slice(1).join('');
+  return v;
+}
+
+function colInputChanged(id, type) {
+  const el = document.getElementById(id);
+  if (!el) return true;
+  const clean = normalizeMetricInput(el.value, type);
+  if (el.value !== clean) el.value = clean;
+  const ok = colValidate(id, type);
+  updateColInterpretation();
+  return ok;
+}
 
 function colValidate(id, type) {
   const el = document.getElementById(id);
@@ -2033,8 +2155,81 @@ function colValidate(id, type) {
   if (type === 'pct')     ok = /^\d+(\.\d+)?$/.test(v) && parseFloat(v) >= 0 && parseFloat(v) <= 100;
   if (type === 'decimal') ok = /^\d+(\.\d+)?$/.test(v) && parseFloat(v) >= 0;
   if (type === 'signed')  ok = /^[+-]?\d+(\.\d+)?$/.test(v);
+  if (type === 'int')     ok = /^\d+$/.test(v);
   el.style.borderColor = ok ? 'var(--green)' : 'var(--red)';
   return ok;
+}
+
+function metricNumber(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const n = parseFloat(String(v).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function signedMetric(v) {
+  const n = metricNumber(v);
+  if (n === null) return null;
+  return (n > 0 ? '+' : '') + n.toFixed(1).replace(/\.0$/, '') + '%';
+}
+
+function interpretColData(cd) {
+  const dp = metricNumber(cd.dp);
+  const ss = metricNumber(cd.ss);
+  const al = metricNumber(cd.al);
+  const nlPct = metricNumber(cd.nlPct);
+  const soldPct = metricNumber(cd.soldPct);
+  const parts = [];
+  let score = 0;
+
+  if (dp !== null) {
+    if (dp >= 10) { parts.push(`demanda aquecida (${dp}%)`); score += 2; }
+    else if (dp >= 5) { parts.push(`demanda moderada (${dp}%)`); score += 1; }
+    else { parts.push(`demand pressure baixa (${dp}%), sinal de supply pesado`); score -= 1; }
+  }
+  if (soldPct !== null) {
+    if (soldPct > 5) { parts.push(`vendas estimadas subindo ${signedMetric(soldPct)}`); score += 1; }
+    else if (soldPct < -5) { parts.push(`vendas estimadas caindo ${signedMetric(soldPct)}`); score -= 1; }
+    else parts.push(`vendas estimadas estaveis (${signedMetric(soldPct)})`);
+  }
+  if (al !== null) {
+    if (al < -5) { parts.push(`anuncios ativos caindo ${signedMetric(al)}, oferta contraindo`); score += 1; }
+    else if (al > 5) { parts.push(`anuncios ativos subindo ${signedMetric(al)}, oferta aumentando`); score -= 1; }
+    else parts.push(`anuncios ativos quase estaveis (${signedMetric(al)})`);
+  }
+  if (nlPct !== null) {
+    if (nlPct > 8) { parts.push(`novos anuncios acelerando ${signedMetric(nlPct)}`); score -= 1; }
+    else if (nlPct < -8) { parts.push(`entrada de novos anuncios caindo ${signedMetric(nlPct)}`); score += 1; }
+  }
+  if (ss !== null) {
+    if (ss > 1.5) { parts.push(`supply saturation shift alto (${ss}), risco de flood/reprint`); score -= 2; }
+    else if (ss > 1.0) { parts.push(`saturacao levemente acima do normal (${ss})`); score -= 1; }
+    else { parts.push(`saturacao controlada (${ss})`); score += 1; }
+  }
+
+  if (!parts.length) return 'Preencha os campos para ver a leitura automatica de oferta, demanda e timing de compra.';
+  const verdict = score >= 3 ? 'Leitura: favoravel para compra se o preco estiver no alvo.' :
+    score >= 1 ? 'Leitura: razoavel, mas exige margem de seguranca.' :
+    score >= -1 ? 'Leitura: neutra, melhor comparar com historico de preco.' :
+    'Leitura: fraca, tende a pedir espera ou preco bem descontado.';
+  return `${verdict} ${parts.join('; ')}.`;
+}
+
+function readColFormData() {
+  return {
+    dp: document.getElementById('col-dp').value.trim(),
+    ss: document.getElementById('col-ss').value.trim(),
+    al: document.getElementById('col-al').value.trim(),
+    alCount: document.getElementById('col-al-count').value.trim(),
+    nl: document.getElementById('col-nl').value.trim(),
+    nlPct: document.getElementById('col-nl-pct').value.trim(),
+    sold: document.getElementById('col-sold').value.trim(),
+    soldPct: document.getElementById('col-sold-pct').value.trim()
+  };
+}
+
+function updateColInterpretation() {
+  const el = document.getElementById('col-live-interpretation');
+  if (el) el.textContent = interpretColData(readColFormData());
 }
 
 function openColModal(i) {
@@ -2049,8 +2244,14 @@ function openColModal(i) {
   document.getElementById('col-dp').value = cd.dp || '';
   document.getElementById('col-ss').value = cd.ss || '';
   document.getElementById('col-al').value = cd.al || '';
-  ['col-dp','col-ss','col-al'].forEach(id => { document.getElementById(id).style.borderColor = 'var(--border)'; });
+  document.getElementById('col-al-count').value = cd.alCount || '';
+  document.getElementById('col-nl').value = cd.nl || '';
+  document.getElementById('col-nl-pct').value = cd.nlPct || '';
+  document.getElementById('col-sold').value = cd.sold || '';
+  document.getElementById('col-sold-pct').value = cd.soldPct || '';
+  COL_FIELD_IDS.forEach(id => { document.getElementById(id).style.borderColor = 'var(--border)'; });
   colSsCheck();
+  updateColInterpretation();
   document.getElementById('colModal').classList.add('open');
 }
 
@@ -2071,12 +2272,19 @@ function saveColData() {
   const dpOk = colValidate('col-dp','pct');
   const ssOk = colValidate('col-ss','decimal');
   const alOk = colValidate('col-al','signed');
-  if (!dpOk || !ssOk || !alOk) return;
-  const dp = document.getElementById('col-dp').value.trim();
-  const ss = document.getElementById('col-ss').value.trim();
-  const al = document.getElementById('col-al').value.trim();
-  if (!dp && !ss && !al) { closeColModal(); return; }
-  watchlist[colModalIndex].colData = { dp, ss, al, updatedAt: new Date().toLocaleDateString('pt-BR') };
+  const alCountOk = colValidate('col-al-count','int');
+  const nlOk = colValidate('col-nl','decimal');
+  const nlPctOk = colValidate('col-nl-pct','signed');
+  const soldOk = colValidate('col-sold','decimal');
+  const soldPctOk = colValidate('col-sold-pct','signed');
+  if (!dpOk || !ssOk || !alOk || !alCountOk || !nlOk || !nlPctOk || !soldOk || !soldPctOk) return;
+  const data = readColFormData();
+  if (!Object.values(data).some(Boolean)) { closeColModal(); return; }
+  watchlist[colModalIndex].colData = {
+    ...data,
+    interpretation: interpretColData(data),
+    updatedAt: new Date().toLocaleDateString('pt-BR')
+  };
   persistWatchlist();
   closeColModal();
   renderWatch();
@@ -2234,7 +2442,7 @@ function closeHistory() {
     <div class="modal-header">
       <div>
         <div class="modal-title">☁ Google Drive Sync</div>
-        <div class="modal-subtitle">Configure uma vez, sincronize em qualquer PC</div>
+        <div class="modal-subtitle">Salva em uma pasta visivel do Google Drive</div>
       </div>
       <button class="btn-sm" onclick="closeDriveSetup()">✕</button>
     </div>
