@@ -59,40 +59,73 @@ function interpretColData(cd) {
   const al = metricNumber(cd.al);
   const nlPct = metricNumber(cd.nlPct);
   const soldPct = metricNumber(cd.soldPct);
-  const parts = [];
-  let score = 0;
 
-  if (dp !== null) {
-    if (dp >= 10) { parts.push(`demanda aquecida (${dp}%)`); score += 2; }
-    else if (dp >= 5) { parts.push(`demanda moderada (${dp}%)`); score += 1; }
-    else { parts.push(`demand pressure baixa (${dp}%), sinal de supply pesado`); score -= 1; }
-  }
-  if (soldPct !== null) {
-    if (soldPct > 5) { parts.push(`vendas estimadas subindo ${signedMetric(soldPct)}`); score += 1; }
-    else if (soldPct < -5) { parts.push(`vendas estimadas caindo ${signedMetric(soldPct)}`); score -= 1; }
-    else parts.push(`vendas estimadas estaveis (${signedMetric(soldPct)})`);
-  }
-  if (al !== null) {
-    if (al < -5) { parts.push(`anuncios ativos caindo ${signedMetric(al)}, oferta contraindo`); score += 1; }
-    else if (al > 5) { parts.push(`anuncios ativos subindo ${signedMetric(al)}, oferta aumentando`); score -= 1; }
-    else parts.push(`anuncios ativos quase estaveis (${signedMetric(al)})`);
-  }
-  if (nlPct !== null) {
-    if (nlPct > 8) { parts.push(`novos anuncios acelerando ${signedMetric(nlPct)}`); score -= 1; }
-    else if (nlPct < -8) { parts.push(`entrada de novos anuncios caindo ${signedMetric(nlPct)}`); score += 1; }
-  }
-  if (ss !== null) {
-    if (ss > 1.5) { parts.push(`supply saturation shift alto (${ss}), risco de flood/reprint`); score -= 2; }
-    else if (ss > 1.0) { parts.push(`saturacao levemente acima do normal (${ss})`); score -= 1; }
-    else { parts.push(`saturacao controlada (${ss})`); score += 1; }
+  if ([dp, ss, al, nlPct, soldPct].every(v => v === null)) {
+    return 'Preencha os campos para ver a leitura: tem comprador suficiente, tem carta demais a venda, e isso deve puxar o preco para cima ou para baixo.';
   }
 
-  if (!parts.length) return 'Preencha os campos para ver a leitura automatica de oferta, demanda e timing de compra.';
-  const verdict = score >= 3 ? 'Leitura: favoravel para compra se o preco estiver no alvo.' :
-    score >= 1 ? 'Leitura: razoavel, mas exige margem de seguranca.' :
-    score >= -1 ? 'Leitura: neutra, melhor comparar com historico de preco.' :
-    'Leitura: fraca, tende a pedir espera ou preco bem descontado.';
-  return `${verdict} ${parts.join('; ')}.`;
+  const demandWeak = dp !== null && dp < 5;
+  const demandOk = dp !== null && dp >= 5 && dp < 10;
+  const demandStrong = dp !== null && dp >= 10;
+  const supplyRising = (al !== null && al > 5) || (nlPct !== null && nlPct > 8) || (ss !== null && ss > 1.2);
+  const supplyFalling = (al !== null && al < -5) || (nlPct !== null && nlPct < -8) || (ss !== null && ss < 0.9);
+  const salesFalling = soldPct !== null && soldPct < -5;
+  const salesRising = soldPct !== null && soldPct > 5;
+
+  const buyers =
+    demandWeak ? 'Tem pouca gente comprando agora' :
+    demandOk ? 'Tem compradores, mas sem euforia' :
+    demandStrong ? 'Tem bastante gente disputando a carta' :
+    'Nao da para medir bem a forca dos compradores';
+
+  const sales =
+    soldPct === null ? '' :
+    salesFalling ? `; as vendas cairam ${signedMetric(soldPct)}, entao o interesse esta esfriando` :
+    salesRising ? `; as vendas subiram ${signedMetric(soldPct)}, entao ainda existe algum interesse` :
+    `; as vendas quase nao mudaram (${signedMetric(soldPct)})`;
+
+  const sellers =
+    supplyRising ? 'Do outro lado, tem mais cartas aparecendo para vender' :
+    supplyFalling ? 'Do outro lado, tem menos cartas aparecendo para vender' :
+    'Do outro lado, a quantidade de cartas a venda nao mudou o bastante';
+
+  const active =
+    al === null ? '' :
+    al > 5 ? `: anuncios ativos subiram ${signedMetric(al)}` :
+    al < -5 ? `: anuncios ativos cairam ${signedMetric(al)}` :
+    `: anuncios ativos ficaram perto do normal (${signedMetric(al)})`;
+
+  const fresh =
+    nlPct === null ? '' :
+    nlPct > 8 ? ` e novos anuncios subiram ${signedMetric(nlPct)}` :
+    nlPct < -8 ? ` e novos anuncios cairam ${signedMetric(nlPct)}` :
+    ` e novos anuncios ficaram perto do normal (${signedMetric(nlPct)})`;
+
+  const stock =
+    ss === null ? '' :
+    ss > 1.5 ? `. O estoque esta claramente sobrando: tem carta demais para a demanda atual` :
+    ss > 1.2 ? `. O estoque esta comecando a sobrar: isso limita alta de preco` :
+    ss < 0.9 ? `. O estoque esta apertando: se aparecer comprador, o preco pode reagir` :
+    `. O estoque esta normal: sozinho, isso nao empurra o preco para cima`;
+
+  let action;
+  if ((demandWeak || salesFalling) && supplyRising) {
+    action = 'Traduzindo: mais vendedor que comprador. A tendencia e o preco cair ou pelo menos aparecer compra melhor com desconto.';
+  } else if (demandStrong && supplyFalling) {
+    action = 'Traduzindo: muita gente quer e tem pouca carta sobrando. Aqui existe risco real de alta.';
+  } else if (demandStrong && supplyRising) {
+    action = 'Traduzindo: tem comprador, mas tambem esta entrando oferta. Pode subir, mas nao vale pagar qualquer preco.';
+  } else if ((demandWeak || salesFalling) && supplyFalling) {
+    action = 'Traduzindo: pouca demanda, mas tambem nao esta sobrando tanta carta. Nao parece compra urgente.';
+  } else if (salesRising && !supplyRising) {
+    action = 'Traduzindo: as vendas ajudam e a oferta nao esta pressionando. Pode estabilizar ou subir um pouco.';
+  } else if (supplyRising) {
+    action = 'Traduzindo: tem carta entrando no mercado. Isso pesa contra alta; melhor esperar ou pedir preco menor.';
+  } else {
+    action = 'Traduzindo: o mercado nao esta dando sinal forte. A compra so faz sentido se o preco ja estiver bom.';
+  }
+
+  return `${buyers}${sales}. ${sellers}${active}${fresh}${stock}. ${action}`;
 }
 
 function readColFormData() {

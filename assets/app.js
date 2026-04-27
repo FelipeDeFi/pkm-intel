@@ -680,15 +680,16 @@ function renderWatch() {
       const nlFrase = nlRaw ? `novos anÃºncios: ${nlRaw}${nlPctRaw ? ` (${fmtPct(nlPctRaw)} vs 30d)` : ''}` : null;
       const soldFrase = soldRaw ? `vendas estimadas: ${soldRaw}${soldPctRaw ? ` (${fmtPct(soldPctRaw)} vs 30d)` : ''}` : null;
       const partes = [dpFrase, soldFrase, ssFrase, alFrase, nlFrase].filter(Boolean);
-      let conclusao = '', conclusaoCor = 'var(--muted)', emoji = '⚪';
+      let conclusaoCor = 'var(--muted)';
       if (partes.length) {
-        if      (total >= 3)  { emoji = '✅'; conclusaoCor = 'var(--green)'; }
-        else if (total >= 1)  { emoji = '🟡'; conclusaoCor = 'var(--accent)'; }
-        else if (total === 0) { emoji = '⚪'; conclusaoCor = 'var(--muted)'; }
-        else if (total >= -2) { emoji = '🟠'; conclusaoCor = '#f7a048'; }
-        else                  { emoji = '🔴'; conclusaoCor = 'var(--red)'; }
-        conclusao = `${emoji} ${partes.join(', ')}.`;
+        if      (total >= 3)  conclusaoCor = 'var(--green)';
+        else if (total >= 1)  conclusaoCor = 'var(--accent)';
+        else if (total >= -2) conclusaoCor = '#f7a048';
+        else                  conclusaoCor = 'var(--red)';
       }
+      const leitura = (typeof interpretColData === 'function')
+        ? interpretColData(cd)
+        : (cd.interpretation || '');
 
       return `
       <div class="col-metrics-bar" style="flex-direction:column;gap:0;padding:0;">
@@ -728,8 +729,7 @@ function renderWatch() {
               <div style="font-size:9px;color:var(--muted);">${alLabel}</div>
             </div>` : ''}
           </div>
-          ${conclusao ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:${conclusaoCor};line-height:1.4;">${conclusao}</div>` : ''}
-          ${cd.interpretation ? `<div style="margin-top:8px;font-size:10px;color:#aeb3c8;line-height:1.45;">${escapeHtml(cd.interpretation)}</div>` : ''}
+          ${leitura ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:${conclusaoCor};line-height:1.45;">${escapeHtml(leitura)}</div>` : ''}
         </div>
       </div>`; })() : '';
 
