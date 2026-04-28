@@ -154,6 +154,42 @@ function fallbackCopy(text, callback) {
 }
 
 // ── Collectrics ───────────────────────────────────
+function buildClaudePrompt(cardName) {
+  return `Analise a carta Pokemon TCG: "${cardName}"
+
+Pesquise antes de pontuar:
+- uso competitivo no Limitless TCG;
+- preco raw NM nos ultimos 30 dias em TCGPlayer/eBay;
+- risco de reprint em PokeBeach/Pokemon.com;
+- oferta e demanda via Collectrics, se houver dados.
+
+Pontue de 0 a 10:
+A) Competitividade (15%)
+B) Protecao contra reprint (20%)
+C) Raridade (20%)
+D) Demanda colecionavel (25%)
+E) Tendencia de preco (20%)
+
+Calcule:
+Score Final = (A*0.15) + (B*0.20) + (C*0.20) + (D*0.25) + (E*0.20)
+
+Ao final, inclua obrigatoriamente:
+SCORE_FINAL: [resultado com 1 casa decimal]
+RECOMENDACAO: [COMPRAR ou AGUARDAR ou EVITAR]
+PRECO_USD: [preco raw NM em USD]`;
+}
+
+function copyPromptForWatch(i) {
+  const item = watchlist[i];
+  if (!item) return;
+  const text = buildClaudePrompt(item.name);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text);
+  } else {
+    fallbackCopy(text);
+  }
+}
+
 function openCol() {
   const input = document.getElementById('colInput').value.trim();
   if (!input) return;
@@ -772,9 +808,7 @@ function renderWatch() {
             <span class="wmeta">${item.date}</span>
           </div>
           <div class="wlinks">
-            <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.tcgplayer.com/search/pokemon/product?q=${enc}" target="_blank">TCG</a>
-            <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.ebay.com/sch/i.html?_nkw=${enc}+pokemon+card&LH_Sold=1" target="_blank">eBay</a>
-            <a class="btn-ext" style="font-size:10px;padding:4px 8px;" href="https://www.ligapokemon.com.br/?view=cards%2Fcard&tipo=1&card=${enc}" target="_blank">Liga</a>
+            <button class="btn-score" onclick="copyPromptForWatch(${i})">Prompt</button>
             <button class="btn-score" onclick="openModal(${i})">+ Score</button>
             <button class="btn-score" style="color:var(--accent3);border-color:rgba(75,207,224,.3);background:rgba(75,207,224,.06);" onclick="openColModal(${i})">📊</button>
             <button class="btn-sm" style="font-size:10px;padding:4px 8px;color:var(--red);border-color:var(--red);" onclick="removeWatch(${i})">✕</button>

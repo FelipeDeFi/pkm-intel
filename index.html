@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PKM Intel</title>
-<link rel="stylesheet" href="assets/styles.css?v=20260427b">
+<link rel="stylesheet" href="assets/styles.css?v=20260428a">
 <!-- Google Identity Services + Drive API -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -83,62 +83,6 @@
 </div>
 
 <main>
-
-  <div class="tabs">
-    <button class="tab" data-tab="collectrics">📊 Collectrics</button>
-    <button class="tab active" data-tab="watchlist">📋 Watchlist</button>
-  </div>
-
-  <!-- COLLECTRICS -->
-  <div class="tab-pane" id="tab-collectrics">
-    <div class="info-grid" style="margin-bottom:14px;">
-      <div class="info-box"><div class="ib-title" style="color:var(--accent)">Demand Pressure</div><div class="ib-desc">% vendidos vs ativos. Alto = demanda aquecida, possível alta de preço.</div></div>
-      <div class="info-box"><div class="ib-title" style="color:var(--red)">Supply Saturation</div><div class="ib-desc">Unsold listings vs baseline 30d. &gt;1.5 = sinal de flood/reprint.</div></div>
-      <div class="info-box"><div class="ib-title" style="color:var(--green)">Price Trend</div><div class="ib-desc">Histórico raw e PSA 10 em 30/60d. Identifica ponto de entrada.</div></div>
-      <div class="info-box"><div class="ib-title" style="color:var(--accent3)">Set EV</div><div class="ib-desc">Valor esperado por pack com pull rates reais.</div></div>
-    </div>
-
-    <div class="section-label">// Seções do Collectrics</div>
-    <div class="link-grid" style="margin-bottom:16px;">
-      <a class="link-card" href="https://mycollectrics.com/" target="_blank">
-        <span class="lc-icon">📊</span><div class="lc-title">Set Leaderboard</div>
-        <div class="lc-desc">Ranking de sets por EV por pack.</div><div class="lc-url">mycollectrics.com</div>
-      </a>
-      <a class="link-card" href="https://mycollectrics.com/card_leaderboard.html" target="_blank">
-        <span class="lc-icon">🏆</span><div class="lc-title">Card Leaderboard</div>
-        <div class="lc-desc">Cartas mais valiosas com demand pressure.</div><div class="lc-url">mycollectrics.com</div>
-      </a>
-      <a class="link-card" href="https://mycollectrics.com/search.html" target="_blank">
-        <span class="lc-icon">🔍</span><div class="lc-title">Busca de Cartas</div>
-        <div class="lc-desc">Preço raw + demand pressure por carta.</div><div class="lc-url">mycollectrics.com</div>
-      </a>
-      <a class="link-card" href="https://mycollectrics.com/calculator.html" target="_blank">
-        <span class="lc-icon">🧮</span><div class="lc-title">Pack Calculator</div>
-        <div class="lc-desc">EV por pack com pull rates reais.</div><div class="lc-url">mycollectrics.com</div>
-      </a>
-    </div>
-
-    <div class="divider"></div>
-    <div class="section-label">// Abrir carta por ID</div>
-    <div class="search-row" style="margin-bottom:10px;">
-      <input class="search-input" id="colInput" type="text"
-        placeholder="ID da carta (ex: 6277093) ou cole a URL completa..."
-        onkeydown="if(event.key==='Enter') openCol()" />
-      <button class="btn" onclick="openCol()">ABRIR</button>
-    </div>
-    <div id="col-frame-wrap" style="display:none;" class="col-frame-wrap">
-      <div class="cf-header">
-        <span class="cf-label" id="col-label"></span>
-        <button class="btn-sm" id="col-open-btn">↗ Abrir em nova aba</button>
-      </div>
-      <div style="background:#fff;border-radius:6px;overflow:hidden;border:1px solid var(--border);">
-        <iframe id="col-iframe" src="" width="100%" height="620" style="border:none;display:block;"></iframe>
-      </div>
-    </div>
-    <div id="col-placeholder" style="text-align:center;padding:20px;font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">
-      Cole o ID para carregar a carta aqui dentro
-    </div>
-  </div>
 
   <!-- WATCHLIST -->
   <div class="tab-pane active" id="tab-watchlist">
@@ -232,10 +176,10 @@
         <button class="btn-sm" onclick="closeColModal()">✕</button>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Se o iframe não carregar (bloqueio do site), use <strong>↗ Nova aba</strong> e preencha os campos ao lado.</div>
     <div class="col-modal-body">
-      <div class="col-iframe-wrap">
-        <iframe id="col-modal-iframe" src="" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+      <div class="col-iframe-wrap" style="align-items:center;justify-content:center;padding:18px;background:var(--bg);">
+        <img id="col-card-image" src="" alt="Carta"
+          style="max-width:100%;max-height:620px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:var(--surface);" />
       </div>
       <div class="col-form-panel">
         <div class="col-metric-field">
@@ -249,7 +193,7 @@
           <div id="col-ss-flag" class="col-metric-hint" style="color:var(--red);display:none;">⚠️ &gt; 1.5 — sinal de reprint</div>
           <div id="col-ss-ok" class="col-metric-hint" style="display:none;">✓ Neutro</div>
         </div>
-        <button class="btn-sm" id="col-auto-btn" onclick="autoFillCollectrics()" style="align-self:flex-start;color:var(--accent3);border-color:rgba(75,207,224,.35);">AUTO COLETAR</button>
+        <button class="btn-sm" id="col-auto-btn" onclick="autoFillCollectrics()" style="align-self:flex-start;color:var(--accent3);border-color:rgba(75,207,224,.35);">RECOLETAR</button>
         <div id="col-auto-status" class="col-metric-hint" style="display:none;"></div>
         <div class="col-form-grid">
           <div class="col-metric-field">
@@ -387,7 +331,7 @@
   </div>
 </div>
 
-<script src="assets/collectrics.js?v=20260427b"></script>
-<script src="assets/app.js?v=20260427b"></script>
+<script src="assets/collectrics.js?v=20260428a"></script>
+<script src="assets/app.js?v=20260428a"></script>
 </body>
 </html>

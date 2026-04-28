@@ -232,16 +232,8 @@ function applyCollectricsMetrics(card, match) {
     source: 'Collectrics API'
   };
 
-  setCollectricsFrameToCard(match.id);
-}
-
-function setCollectricsFrameToCard(id) {
-  if (!id) return;
-  const url = `https://mycollectrics.com/card.html?id=${encodeURIComponent(id)}`;
-  const iframe = document.getElementById('col-modal-iframe');
-  const ext = document.getElementById('col-modal-ext');
-  if (iframe && iframe.src !== url) iframe.src = url;
-  if (ext) ext.href = url;
+  const img = document.getElementById('col-card-image');
+  if (img && match['image-url']) img.src = match['image-url'];
 }
 
 async function autoFillCollectrics(options = {}) {
@@ -270,7 +262,7 @@ async function autoFillCollectrics(options = {}) {
   } catch (e) {
     if (!silent) setColAutoStatus(e.message || 'Falha ao coletar dados automaticamente', 'var(--red)');
   } finally {
-    if (btn && !silent) { btn.disabled = false; btn.textContent = 'AUTO COLETAR'; }
+    if (btn && !silent) { btn.disabled = false; btn.textContent = 'RECOLETAR'; }
   }
 }
 
@@ -280,53 +272,17 @@ function buildCollectricsSearchUrl(name) {
   return `https://mycollectrics.com/search.html?q=${q}`;
 }
 
-function tryFillCollectricsIframeSearch(name) {
-  const iframe = document.getElementById('col-modal-iframe');
-  const clean = cleanCardNameForSearch(name);
-  if (!iframe || !clean) return;
-  try {
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-    const input = doc.getElementById('searchInput') ||
-      doc.querySelector('input[type="search"], input[name*="search" i], input[placeholder*="search" i], input[placeholder*="bus" i], input[type="text"]');
-    if (!input) return;
-    input.focus();
-    input.value = clean;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    ['keydown', 'keyup'].forEach(type => {
-      input.dispatchEvent(new KeyboardEvent(type, {
-        bubbles: true,
-        cancelable: true,
-        key: 'Enter',
-        code: 'Enter'
-      }));
-    });
-    const form = input.form || doc.getElementById('searchForm');
-    if (form) {
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    }
-  } catch (e) {
-    // Cross-origin iframes can block direct fill; URL query params still help when supported.
-  }
-}
-
-function scheduleCollectricsIframeFill(name) {
-  [150, 600, 1200, 2200].forEach(delay => {
-    setTimeout(() => tryFillCollectricsIframeSearch(name), delay);
-  });
-}
-
 function openColModal(i) {
   colModalIndex = i;
   colAutoMeta = null;
   const item = watchlist[i];
   document.getElementById('col-modal-name').textContent = item.name;
-  const url = item.colData && item.colData.collectricsId
+  const extUrl = item.colData && item.colData.collectricsId
     ? `https://mycollectrics.com/card.html?id=${encodeURIComponent(item.colData.collectricsId)}`
     : buildCollectricsSearchUrl(item.name);
-  document.getElementById('col-modal-iframe').src = url;
-  document.getElementById('col-modal-ext').href  = url;
-  document.getElementById('col-modal-iframe').onload = () => scheduleCollectricsIframeFill(item.name);
+  document.getElementById('col-modal-ext').href = extUrl;
+  const img = document.getElementById('col-card-image');
+  if (img) img.src = item.imageUrl || '';
   setColAutoStatus('', '');
   const cd = item.colData || {};
   document.getElementById('col-dp').value = cd.dp || '';
@@ -341,12 +297,11 @@ function openColModal(i) {
   colSsCheck();
   updateColInterpretation();
   document.getElementById('colModal').classList.add('open');
-  if (!cd.collectricsId) setTimeout(() => autoFillCollectrics({ silent: true }), 150);
+  setTimeout(() => autoFillCollectrics(), 80);
 }
 
 function closeColModal() {
   document.getElementById('colModal').classList.remove('open');
-  document.getElementById('col-modal-iframe').src = '';
   colModalIndex = -1;
 }
 
