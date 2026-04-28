@@ -154,24 +154,56 @@ function fallbackCopy(text, callback) {
 }
 
 // ── Collectrics ───────────────────────────────────
-function buildClaudePrompt(cardName) {
+function formatCollectricsForPrompt(item) {
+  const cd = item && item.colData ? item.colData : null;
+  if (!cd) return 'Collectrics: sem dados salvos para esta carta.';
+  const rows = [
+    `Collectrics: ${cd.collectricsName || item.name}${cd.collectricsSet ? ` (${cd.collectricsSet})` : ''}`,
+    cd.collectricsAsOf ? `Data dos dados: ${cd.collectricsAsOf}` : '',
+    cd.dp ? `Demand pressure: ${cd.dp}%` : '',
+    cd.ss ? `Supply saturation shift: ${cd.ss}` : '',
+    cd.alCount ? `Active listings: ${cd.alCount}` : '',
+    cd.al ? `Active listings vs 30d: ${cd.al}%` : '',
+    cd.nl ? `New listings: ${cd.nl}` : '',
+    cd.nlPct ? `New listings vs 30d: ${cd.nlPct}%` : '',
+    cd.sold ? `Sold estimate: ${cd.sold}` : '',
+    cd.soldPct ? `Sold estimate vs 30d: ${cd.soldPct}%` : '',
+    cd.interpretation ? `Leitura operacional: ${cd.interpretation}` : ''
+  ].filter(Boolean);
+  return rows.join('\n');
+}
+
+function buildClaudePrompt(itemOrName) {
+  const item = typeof itemOrName === 'string' ? { name: itemOrName } : itemOrName;
+  const cardName = item && item.name ? item.name : '';
+  const collectrics = formatCollectricsForPrompt(item);
   return `Analise a carta Pokemon TCG: "${cardName}"
 
 Pesquise antes de pontuar:
 - uso competitivo no Limitless TCG;
 - preco raw NM nos ultimos 30 dias em TCGPlayer/eBay;
 - risco de reprint em PokeBeach/Pokemon.com;
-- oferta e demanda via Collectrics, se houver dados.
+- use os dados Collectrics abaixo como base da parte economica.
+
+DADOS COLLECTRICS JA COLETADOS:
+${collectrics}
 
 Pontue de 0 a 10:
-A) Competitividade (15%)
-B) Protecao contra reprint (20%)
-C) Raridade (20%)
+A) Competitividade (10%)
+B) Protecao contra reprint (15%)
+C) Raridade (15%)
 D) Demanda colecionavel (25%)
 E) Tendencia de preco (20%)
+F) Economia / Collectrics (15%)
+
+No criterio F, traduza os dados como economia simples:
+- se ha compradores suficientes;
+- se ha cartas demais sendo anunciadas;
+- se o estoque parece sobrar ou apertar;
+- se isso tende a puxar preco para baixo, para cima ou deixar de lado.
 
 Calcule:
-Score Final = (A*0.15) + (B*0.20) + (C*0.20) + (D*0.25) + (E*0.20)
+Score Final = (A*0.10) + (B*0.15) + (C*0.15) + (D*0.25) + (E*0.20) + (F*0.15)
 
 Ao final, inclua obrigatoriamente:
 SCORE_FINAL: [resultado com 1 casa decimal]
@@ -179,14 +211,30 @@ RECOMENDACAO: [COMPRAR ou AGUARDAR ou EVITAR]
 PRECO_USD: [preco raw NM em USD]`;
 }
 
-function copyPromptForWatch(i) {
+function openPromptModal(i) {
   const item = watchlist[i];
   if (!item) return;
-  const text = buildClaudePrompt(item.name);
+  document.getElementById('prompt-modal-name').textContent = item.name;
+  document.getElementById('promptTextarea').value = buildClaudePrompt(item);
+  document.getElementById('prompt-copy-status').style.display = 'none';
+  document.getElementById('promptModal').classList.add('open');
+}
+
+function closePromptModal() {
+  document.getElementById('promptModal').classList.remove('open');
+}
+
+function copyPromptModal() {
+  const text = document.getElementById('promptTextarea').value;
+  const done = () => {
+    const el = document.getElementById('prompt-copy-status');
+    el.style.display = 'inline';
+    setTimeout(() => { el.style.display = 'none'; }, 1800);
+  };
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
   } else {
-    fallbackCopy(text);
+    fallbackCopy(text, done);
   }
 }
 
@@ -364,6 +412,9 @@ function closeModal() {
 // Close on overlay click
 document.getElementById('scoreModal').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
+});
+document.getElementById('promptModal').addEventListener('click', function(e) {
+  if (e.target === this) closePromptModal();
 });
 
 function previewScore() {
@@ -808,7 +859,7 @@ function renderWatch() {
             <span class="wmeta">${item.date}</span>
           </div>
           <div class="wlinks">
-            <button class="btn-score" onclick="copyPromptForWatch(${i})">Prompt</button>
+            <button class="btn-score" onclick="openPromptModal(${i})">Prompt</button>
             <button class="btn-score" onclick="openModal(${i})">+ Score</button>
             <button class="btn-score" style="color:var(--accent3);border-color:rgba(75,207,224,.3);background:rgba(75,207,224,.06);" onclick="openColModal(${i})">📊</button>
             <button class="btn-sm" style="font-size:10px;padding:4px 8px;color:var(--red);border-color:var(--red);" onclick="removeWatch(${i})">✕</button>

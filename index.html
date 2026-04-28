@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PKM Intel</title>
-<link rel="stylesheet" href="assets/styles.css?v=20260428a">
+<link rel="stylesheet" href="assets/styles.css?v=20260428b">
 <!-- Google Identity Services + Drive API -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -107,7 +107,27 @@
   </div>
 
 </main>
-
+<!-- ── MODAL PROMPT CLAUDE ── -->
+<div class="modal-overlay" id="promptModal">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">PROMPT CLAUDE</div>
+        <div class="modal-subtitle" id="prompt-modal-name">—</div>
+      </div>
+      <button class="btn-sm" onclick="closePromptModal()">✕</button>
+    </div>
+    <div class="modal-hint">
+      Revise se quiser, copie e cole no Claude. O prompt ja inclui os dados Collectrics salvos para esta carta.
+    </div>
+    <textarea id="promptTextarea" style="min-height:420px;"></textarea>
+    <div class="modal-actions">
+      <span id="prompt-copy-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green);display:none;align-self:center;">Copiado</span>
+      <button class="btn-sm" onclick="closePromptModal()">Fechar</button>
+      <button class="btn" onclick="copyPromptModal()">COPIAR</button>
+    </div>
+  </div>
+</div>
 <!-- ── MODAL DE EXCEÇÃO DA WATCHLIST ── -->
 <div class="modal-overlay" id="watchExceptionModal">
   <div class="modal" style="max-width:720px;">
@@ -331,7 +351,7 @@
   </div>
 </div>
 
-<script src="assets/collectrics.js?v=20260428a"></script>
-<script src="assets/app.js?v=20260428a"></script>
+<script src="assets/collectrics.js?v=20260428b"></script>
+<script src="assets/app.js?v=20260428b"></script>
 </body>
 </html>
