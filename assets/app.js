@@ -205,7 +205,19 @@ No criterio F, traduza os dados como economia simples:
 Calcule:
 Score Final = (A*0.10) + (B*0.15) + (C*0.15) + (D*0.25) + (E*0.20) + (F*0.15)
 
-Ao final, inclua obrigatoriamente:
+Ao final, inclua obrigatoriamente este bloco estruturado:
+BREAKDOWN:
+COMPETITIVIDADE: [0-10] - [justificativa curta]
+REPRINT: [0-10] - [justificativa curta]
+RARIDADE: [0-10] - [justificativa curta]
+DEMANDA: [0-10] - [justificativa curta]
+TENDENCIA_PRECO: [0-10] - [justificativa curta]
+ECONOMIA_COLLECTRICS: [0-10] - [justificativa curta]
+
+RISKS: [lista curta separada por ponto e virgula]
+PRECO_ALVO_USD: [valor]
+PRECO_ALVO_BRL: [valor]
+MOTIVO_RECOMENDACAO: [frase curta]
 SCORE_FINAL: [resultado com 1 casa decimal]
 RECOMENDACAO: [COMPRAR ou AGUARDAR ou EVITAR]
 PRECO_USD: [preco raw NM em USD]`;
@@ -310,7 +322,7 @@ function extractInsights(text) {
 
   // Extract factor rows from markdown table
   // Matches: | **A) Name** | 9 | Short criterion | Long justification |
-  const re = /\|\s*\*{0,2}([A-E]\)[\s\wÀ-ɏ/(),.-]+?)\*{0,2}\s*\|\s*(\d+(?:[.,]\d+)?)\s*\|([^|]+)\|/g;
+  const re = /\|\s*\*{0,2}([A-F]\)[\s\wÀ-ɏ/(),.-]+?)\*{0,2}\s*\|\s*(\d+(?:[.,]\d+)?)\s*\|([^|]+)\|/g;
   let m;
   while ((m = re.exec(text)) !== null) {
     const name  = m[1].trim();
@@ -330,44 +342,138 @@ function extractInsights(text) {
   return insights.factors.length ? insights : null;
 }
 
+function extractLineValue(text, label) {
+  const re = new RegExp('^\\s*' + label + '\\s*:\\s*(.+)$', 'im');
+  const m = text.match(re);
+  return m ? m[1].trim() : null;
+}
+
+function cleanAnalysisValue(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function parseStructuredAnalysis(text) {
+  const labelMap = {
+    COMPETITIVIDADE: 'competitividade',
+    REPRINT: 'reprint',
+    RARIDADE: 'raridade',
+    DEMANDA: 'demanda',
+    TENDENCIA_PRECO: 'tendenciaPreco',
+    ECONOMIA_COLLECTRICS: 'economiaCollectrics'
+  };
+  const scoreBreakdown = {};
+  const scoreJustifications = {};
+  const re = /^\s*(COMPETITIVIDADE|REPRINT|RARIDADE|DEMANDA|TENDENCIA_PRECO|ECONOMIA_COLLECTRICS)\s*:\s*(\d+(?:[.,]\d+)?)\s*(?:[-:–—]\s*)?(.*)$/gmi;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const key = labelMap[m[1].toUpperCase()];
+    const score = parseFloat(m[2].replace(',', '.'));
+    if (!key || Number.isNaN(score)) continue;
+    scoreBreakdown[key] = score;
+    scoreJustifications[key] = cleanAnalysisValue(m[3]);
+  }
+
+  const risksRaw = extractLineValue(text, 'RISKS');
+  const risks = risksRaw
+    ? risksRaw.split(';').map(v => cleanAnalysisValue(v)).filter(Boolean)
+    : [];
+
+  return {
+    scoreBreakdown: Object.keys(scoreBreakdown).length ? scoreBreakdown : null,
+    scoreJustifications: Object.keys(scoreJustifications).length ? scoreJustifications : null,
+    risks,
+    targetBuyPriceUsd: extractLineValue(text, 'PRECO_ALVO_USD'),
+    targetBuyPriceBrl: extractLineValue(text, 'PRECO_ALVO_BRL'),
+    recommendationReason: extractLineValue(text, 'MOTIVO_RECOMENDACAO')
+  };
+}
+
 function renderInsights(h) {
   if (!h.insights || !h.insights.factors || !h.insights.factors.length) return '';
   const meta = {
-    'A)': { short: 'COMP',      icon: '⚔️'  },
-    'B)': { short: 'REPRINT',   icon: '🔒'  },
-    'C)': { short: 'RARIDADE',  icon: '💎'  },
-    'D)': { short: 'DEMANDA',   icon: '🔥'  },
-    'E)': { short: 'TENDÊNCIA', icon: '📈'  }
+    'A)': { short: 'COMP',      icon: 'C'  },
+    'B)': { short: 'REPRINT',   icon: 'R'  },
+    'C)': { short: 'RARIDADE',  icon: 'RA' },
+    'D)': { short: 'DEMANDA',   icon: 'D'  },
+    'E)': { short: 'TENDENCIA', icon: 'T'  },
+    'F)': { short: 'ECONOMIA',  icon: '$'  }
   };
   const rows = h.insights.factors.map(f => {
     const key = Object.keys(meta).find(k => f.name.startsWith(k)) || '';
-    const m   = meta[key] || { short: f.name.substring(0,8), icon: '•' };
+    const m   = meta[key] || { short: f.name.substring(0,8), icon: '-' };
     const sc  = f.score >= 7 ? 'var(--green)' : f.score >= 5 ? 'var(--accent)' : 'var(--red)';
     return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);width:70px;flex-shrink:0;white-space:nowrap;">${m.icon} ${m.short}</span>
       <span style="font-family:'Bebas Neue',sans-serif;font-size:17px;color:${sc};min-width:20px;line-height:1;">${f.score}</span>
-      <span style="font-size:10px;color:#7070a0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${f.summary.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+      <span style="font-size:10px;color:#7070a0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escapeHtml(f.summary)}</span>
     </div>`;
   }).join('');
 
   const reprint = h.insights.reprint
     ? `<div style="margin-top:7px;padding:6px 9px;background:rgba(224,92,75,.06);border-left:2px solid var(--red);border-radius:0 3px 3px 0;">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:3px;">⚠ RISCO REPRINT</div>
-        <div style="font-size:10px;color:#9090a8;line-height:1.55;">${h.insights.reprint.replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,200)}${h.insights.reprint.length>200?'…':''}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:3px;">RISCO REPRINT</div>
+        <div style="font-size:10px;color:#9090a8;line-height:1.55;">${escapeHtml(h.insights.reprint).substring(0,200)}${h.insights.reprint.length>200?'...':''}</div>
       </div>` : '';
 
   const persp = h.insights.perspectiva
     ? `<div style="margin-top:6px;padding:6px 9px;background:rgba(75,205,122,.05);border-left:2px solid var(--green);border-radius:0 3px 3px 0;">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);letter-spacing:1px;margin-bottom:3px;">📅 PERSPECTIVA 3-6 MESES</div>
-        <div style="font-size:10px;color:#9090a8;line-height:1.55;">${h.insights.perspectiva.replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,200)}${h.insights.perspectiva.length>200?'…':''}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);letter-spacing:1px;margin-bottom:3px;">PERSPECTIVA 3-6 MESES</div>
+        <div style="font-size:10px;color:#9090a8;line-height:1.55;">${escapeHtml(h.insights.perspectiva).substring(0,200)}${h.insights.perspectiva.length>200?'...':''}</div>
       </div>` : '';
 
   return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">📋 análise detalhada</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">analise detalhada</div>
     ${rows}${reprint}${persp}
   </div>`;
 }
 
+function renderStructuredAnalysis(h) {
+  const labels = [
+    ['competitividade', 'COMPETITIVIDADE'],
+    ['reprint', 'REPRINT'],
+    ['raridade', 'RARIDADE'],
+    ['demanda', 'DEMANDA'],
+    ['tendenciaPreco', 'TENDENCIA'],
+    ['economiaCollectrics', 'ECONOMIA']
+  ];
+  const breakdown = h.scoreBreakdown || {};
+  const just = h.scoreJustifications || {};
+  const hasBreakdown = labels.some(([key]) => breakdown[key] !== undefined || just[key]);
+  const extras = [];
+  if (h.recommendationReason) extras.push(['MOTIVO', h.recommendationReason]);
+  if (h.targetBuyPriceUsd) extras.push(['ALVO USD', h.targetBuyPriceUsd]);
+  if (h.targetBuyPriceBrl) extras.push(['ALVO BRL', h.targetBuyPriceBrl]);
+
+  const breakdownHtml = hasBreakdown ? labels.map(([key, label]) => {
+    const value = breakdown[key];
+    const color = value >= 7 ? 'var(--green)' : value >= 5 ? 'var(--accent)' : 'var(--red)';
+    return `<div style="display:grid;grid-template-columns:92px 34px 1fr;gap:8px;align-items:start;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.7px;">${label}</span>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${value === undefined ? 'var(--muted)' : color};line-height:1;">${value === undefined ? '--' : value}</span>
+      <span style="font-size:10px;color:#9090a8;line-height:1.45;">${escapeHtml(just[key] || '')}</span>
+    </div>`;
+  }).join('') : '';
+
+  const extrasHtml = extras.length ? `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+    ${extras.map(([label, value]) => `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#b0b0c8;border:1px solid var(--border);border-radius:4px;padding:4px 6px;"><span style="color:var(--muted);">${label}:</span> ${escapeHtml(value)}</span>`).join('')}
+  </div>` : '';
+
+  const risksHtml = h.risks && h.risks.length ? `<div style="margin-top:8px;font-size:10px;color:#9090a8;line-height:1.5;">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--red);letter-spacing:1px;">RISCOS:</span>
+    ${h.risks.map(escapeHtml).join('; ')}
+  </div>` : '';
+
+  const details = [
+    h.analysisText ? `<details style="margin-top:8px;"><summary style="cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent3);">Resposta completa salva</summary><pre style="white-space:pre-wrap;max-height:260px;overflow:auto;margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,.03);font-size:10px;color:#b0b0c8;line-height:1.45;">${escapeHtml(h.analysisText)}</pre></details>` : '',
+    h.promptText ? `<details style="margin-top:6px;"><summary style="cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent);">Prompt usado</summary><pre style="white-space:pre-wrap;max-height:260px;overflow:auto;margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,.03);font-size:10px;color:#b0b0c8;line-height:1.45;">${escapeHtml(h.promptText)}</pre></details>` : ''
+  ].join('');
+
+  if (!hasBreakdown && !extrasHtml && !risksHtml && !details) return '';
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">dados salvos da analise</div>
+    ${breakdownHtml}${extrasHtml}${risksHtml}${details}
+  </div>`;
+}
 function scoreColor(score) {
   if (score === null) return 'var(--muted)';
   if (score >= 7) return 'var(--green)';
@@ -524,13 +630,22 @@ function saveScore() {
   const brl = document.getElementById('priceBrlInput').value.trim().replace('.',',');
   if (!usd || !brl) { trySave(); return; }
 
+  const structured = parseStructuredAnalysis(text);
   const snapshot = {
     date: new Date().toLocaleDateString('pt-BR'),
     score,
     rec,
     priceUsd: usd,
     priceBrl: brl,
-    insights: extractInsights(text)
+    insights: extractInsights(text),
+    promptText: buildClaudePrompt(watchlist[modalIndex]),
+    analysisText: text,
+    scoreBreakdown: structured.scoreBreakdown,
+    scoreJustifications: structured.scoreJustifications,
+    risks: structured.risks,
+    targetBuyPriceUsd: structured.targetBuyPriceUsd,
+    targetBuyPriceBrl: structured.targetBuyPriceBrl,
+    recommendationReason: structured.recommendationReason
   };
 
   // Save current values for quick display
@@ -1658,6 +1773,7 @@ function openHistory(i) {
             })() : ''}
           </div>
           ${h.colNotes ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:#9090a8;"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--accent3);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:3px;">📊 Collectrics</span>${h.colNotes.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
+          ${renderStructuredAnalysis(h)}
           ${renderInsights(h)}
         </div>`;
     }).join('');
